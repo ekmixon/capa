@@ -167,10 +167,11 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
 
         @retval QtCore.Qt.ItemFlags
         """
-        if not model_index.isValid():
-            return QtCore.Qt.NoItemFlags
-
-        return model_index.internalPointer().flags
+        return (
+            model_index.internalPointer().flags
+            if model_index.isValid()
+            else QtCore.Qt.NoItemFlags
+        )
 
     def headerData(self, section, orientation, role):
         """return data for the given role and section in the header with the specified orientation
@@ -198,14 +199,8 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
         if not self.hasIndex(row, column, parent):
             return QtCore.QModelIndex()
 
-        if not parent.isValid():
-            parent_item = self.root_node
-        else:
-            parent_item = parent.internalPointer()
-
-        child_item = parent_item.child(row)
-
-        if child_item:
+        parent_item = parent.internalPointer() if parent.isValid() else self.root_node
+        if child_item := parent_item.child(row):
             return self.createIndex(row, column, child_item)
         else:
             return QtCore.QModelIndex()
@@ -275,14 +270,13 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
             # item checked - record current highlight and set to new
             item.ida_highlight = curr_highlight
             idc.set_color(item.location, idc.CIC_ITEM, DEFAULT_HIGHLIGHT)
+        elif curr_highlight == DEFAULT_HIGHLIGHT:
+            # reset highlight to previous
+            idc.set_color(item.location, idc.CIC_ITEM, item.ida_highlight)
+
         else:
-            # item unchecked - reset highlight
-            if curr_highlight != DEFAULT_HIGHLIGHT:
-                # user modified highlight - record new highlight and do not modify
-                item.ida_highlight = curr_highlight
-            else:
-                # reset highlight to previous
-                idc.set_color(item.location, idc.CIC_ITEM, item.ida_highlight)
+            # user modified highlight - record new highlight and do not modify
+            item.ida_highlight = curr_highlight
 
     def setData(self, model_index, value, role):
         """set data at index by role
@@ -335,10 +329,11 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
         if model_index.column() > 0:
             return 0
 
-        if not model_index.isValid():
-            item = self.root_node
-        else:
-            item = model_index.internalPointer()
+        item = (
+            model_index.internalPointer()
+            if model_index.isValid()
+            else self.root_node
+        )
 
         return item.childCount()
 
@@ -353,7 +348,7 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
         if statement["type"] in ("and", "or", "optional"):
             display = statement["type"]
             if statement.get("description"):
-                display += " (%s)" % statement["description"]
+                display += f' ({statement["description"]})'
             return CapaExplorerDefaultItem(parent, display)
         elif statement["type"] == "not":
             # TODO: do we display 'not'
@@ -361,14 +356,14 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
         elif statement["type"] == "some":
             display = "%d or more" % statement["count"]
             if statement.get("description"):
-                display += " (%s)" % statement["description"]
+                display += f' ({statement["description"]})'
             return CapaExplorerDefaultItem(parent, display)
         elif statement["type"] == "range":
             # `range` is a weird node, its almost a hybrid of statement + feature.
             # it is a specific feature repeated multiple times.
             # there's no additional logic in the feature part, just the existence of a feature.
             # so, we have to inline some of the feature rendering here.
-            display = "count(%s): " % self.capa_doc_feature_to_display(statement["child"])
+            display = f'count({self.capa_doc_feature_to_display(statement["child"])}): '
 
             if statement["max"] == statement["min"]:
                 display += "%d" % (statement["min"])
@@ -380,7 +375,7 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
                 display += "between %d and %d" % (statement["min"], statement["max"])
 
             if statement.get("description"):
-                display += " (%s)" % statement["description"]
+                display += f' ({statement["description"]})'
 
             parent2 = CapaExplorerFeatureItem(parent, display=display)
 
@@ -392,10 +387,10 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
         elif statement["type"] == "subscope":
             display = statement[statement["type"]]
             if statement.get("description"):
-                display += " (%s)" % statement["description"]
+                display += f' ({statement["description"]})'
             return CapaExplorerSubscopeItem(parent, display)
         else:
-            raise RuntimeError("unexpected match statement type: " + str(statement))
+            raise RuntimeError(f"unexpected match statement type: {str(statement)}")
 
     def render_capa_doc_match(self, parent, match, doc):
         """render capa match read from doc
@@ -497,16 +492,15 @@ class CapaExplorerDataModel(QtCore.QAbstractItemModel):
         @param feature: capa feature read from doc
         """
         key = feature["type"]
-        value = feature[feature["type"]]
-        if value:
-            if key == "string":
-                value = '"%s"' % capa.features.common.escape_string(value)
-            if feature.get("description", ""):
-                return "%s(%s = %s)" % (key, value, feature["description"])
-            else:
-                return "%s(%s)" % (key, value)
-        else:
-            return "%s" % key
+        if not (value := feature[key]):
+            return f"{key}"
+        if key == "string":
+            value = '"%s"' % capa.features.common.escape_string(value)
+        return (
+            f'{key}({value} = {feature["description"]})'
+            if feature.get("description", "")
+            else f"{key}({value})"
+        )
 
     def render_capa_doc_feature_node(self, parent, feature, locations, doc):
         """process capa doc feature node

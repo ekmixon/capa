@@ -17,7 +17,4 @@ def get_coderef_from(vw: VivWorkspace, va: int) -> Optional[int]:
     return None if no code reference is found
     """
     xrefs = vw.getXrefsFrom(va, REF_CODE)
-    if len(xrefs) > 0:
-        return xrefs[0][XR_TO]
-    else:
-        return None
+    return xrefs[0][XR_TO] if len(xrefs) > 0 else None

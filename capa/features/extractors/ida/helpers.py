@@ -72,7 +72,7 @@ def get_segment_buffer(seg):
         sz -= 0x1000
 
     # IDA returns None if get_bytes fails, so convert for consistent return type
-    return buff if buff else b""
+    return buff or b""
 
 
 def get_file_imports():
@@ -107,8 +107,7 @@ def get_instructions_in_range(start, end):
         (insn_t*)
     """
     for head in idautils.Heads(start, end):
-        insn = idautils.DecodeInstruction(head)
-        if insn:
+        if insn := idautils.DecodeInstruction(head):
             yield insn
 
 
@@ -129,13 +128,7 @@ def is_operand_equal(op1, op2):
     if op1.phrase != op2.phrase:
         return False
 
-    if op1.value != op2.value:
-        return False
-
-    if op1.addr != op2.addr:
-        return False
-
-    return True
+    return False if op1.value != op2.value else op1.addr == op2.addr
 
 
 def is_basic_block_equal(bb1, bb2):
@@ -143,13 +136,7 @@ def is_basic_block_equal(bb1, bb2):
     if bb1.start_ea != bb2.start_ea:
         return False
 
-    if bb1.end_ea != bb2.end_ea:
-        return False
-
-    if bb1.type != bb2.type:
-        return False
-
-    return True
+    return False if bb1.end_ea != bb2.end_ea else bb1.type == bb2.type
 
 
 def basic_block_size(bb):
@@ -242,20 +229,18 @@ def is_op_offset(insn, op):
 
 def is_sp_modified(insn):
     """determine if instruction modifies SP, ESP, RSP"""
-    for op in get_insn_ops(insn, target_ops=(idaapi.o_reg,)):
-        if op.reg == idautils.procregs.sp.reg and is_op_write(insn, op):
-            # register is stack and written
-            return True
-    return False
+    return any(
+        op.reg == idautils.procregs.sp.reg and is_op_write(insn, op)
+        for op in get_insn_ops(insn, target_ops=(idaapi.o_reg,))
+    )
 
 
 def is_bp_modified(insn):
     """check if instruction modifies BP, EBP, RBP"""
-    for op in get_insn_ops(insn, target_ops=(idaapi.o_reg,)):
-        if op.reg == idautils.procregs.bp.reg and is_op_write(insn, op):
-            # register is base and written
-            return True
-    return False
+    return any(
+        op.reg == idautils.procregs.bp.reg and is_op_write(insn, op)
+        for op in get_insn_ops(insn, target_ops=(idaapi.o_reg,))
+    )
 
 
 def is_frame_register(reg):
@@ -305,10 +290,7 @@ def is_function_recursive(f):
     args:
         f (IDA func_t)
     """
-    for ref in idautils.CodeRefsTo(f.start_ea, True):
-        if f.contains(ref):
-            return True
-    return False
+    return any(f.contains(ref) for ref in idautils.CodeRefsTo(f.start_ea, True))
 
 
 def is_basic_block_tight_loop(bb):
@@ -367,8 +349,7 @@ def get_function_blocks(f):
         block (IDA BasicBlock)
     """
     # leverage idaapi.FC_NOEXT flag to ignore useless external blocks referenced by the function
-    for block in idaapi.FlowChart(f, flags=(idaapi.FC_PREDS | idaapi.FC_NOEXT)):
-        yield block
+    yield from idaapi.FlowChart(f, flags=(idaapi.FC_PREDS | idaapi.FC_NOEXT))
 
 
 def is_basic_block_return(bb):

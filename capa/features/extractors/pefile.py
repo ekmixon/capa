@@ -49,27 +49,28 @@ def extract_file_import_names(pe, **kwargs):
      - modulename.importname
      - importname
     """
-    if hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
-        for dll in pe.DIRECTORY_ENTRY_IMPORT:
-            try:
-                modname = dll.dll.partition(b"\x00")[0].decode("ascii")
-            except UnicodeDecodeError:
-                continue
+    if not hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
+        return
+    for dll in pe.DIRECTORY_ENTRY_IMPORT:
+        try:
+            modname = dll.dll.partition(b"\x00")[0].decode("ascii")
+        except UnicodeDecodeError:
+            continue
 
-            # strip extension
-            modname = modname.rpartition(".")[0].lower()
+        # strip extension
+        modname = modname.rpartition(".")[0].lower()
 
-            for imp in dll.imports:
-                if imp.import_by_ordinal:
-                    impname = "#%s" % imp.ordinal
-                else:
-                    try:
-                        impname = imp.name.partition(b"\x00")[0].decode("ascii")
-                    except UnicodeDecodeError:
-                        continue
+        for imp in dll.imports:
+            if imp.import_by_ordinal:
+                impname = f"#{imp.ordinal}"
+            else:
+                try:
+                    impname = imp.name.partition(b"\x00")[0].decode("ascii")
+                except UnicodeDecodeError:
+                    continue
 
-                for name in capa.features.extractors.helpers.generate_symbols(modname, impname):
-                    yield Import(name), imp.address
+            for name in capa.features.extractors.helpers.generate_symbols(modname, impname):
+                yield Import(name), imp.address
 
 
 def extract_file_section_names(pe, **kwargs):
@@ -99,9 +100,6 @@ def extract_file_function_names(**kwargs):
     """
     extract the names of statically-linked library functions.
     """
-    if False:
-        # using a `yield` here to force this to be a generator, not function.
-        yield NotImplementedError("pefile doesn't have library matching")
     return
 
 
@@ -137,8 +135,7 @@ def extract_file_features(pe, buf):
     """
 
     for file_handler in FILE_HANDLERS:
-        for feature, va in file_handler(pe=pe, buf=buf):
-            yield feature, va
+        yield from file_handler(pe=pe, buf=buf)
 
 
 FILE_HANDLERS = (
@@ -167,8 +164,7 @@ class PefileFeatureExtractor(FeatureExtractor):
         with open(self.path, "rb") as f:
             buf = f.read()
 
-        for feature, va in extract_file_features(self.pe, buf):
-            yield feature, va
+        yield from extract_file_features(self.pe, buf)
 
     def get_functions(self):
         raise NotImplementedError("PefileFeatureExtract can only be used to extract file features")

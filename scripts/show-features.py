@@ -139,7 +139,7 @@ def main(argv=None):
             if va:
                 print("file: 0x%08x: %s" % (va, feature))
             else:
-                print("file: 0x00000000: %s" % (feature))
+                print(f"file: 0x00000000: {feature}")
 
     functions = extractor.get_functions()
 
@@ -153,7 +153,7 @@ def main(argv=None):
                 print("0x%X not a function" % args.function)
                 return -1
 
-        if len(functions) == 0:
+        if not functions:
             print("0x%X not a function")
             return -1
 
@@ -177,7 +177,7 @@ def ida_main():
             if va:
                 print("file: 0x%08x: %s" % (va, feature))
             else:
-                print("file: 0x00000000: %s" % (feature))
+                print(f"file: 0x00000000: {feature}")
         return
 
     functions = extractor.get_functions()
@@ -185,7 +185,7 @@ def ida_main():
     if function:
         functions = tuple(filter(lambda f: f.start_ea == function, functions))
 
-        if len(functions) == 0:
+        if not functions:
             print("0x%X not a function" % function)
             return -1
 

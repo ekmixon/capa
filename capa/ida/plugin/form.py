@@ -62,7 +62,7 @@ def trim_function_name(f, max_length=25):
     """ """
     n = idaapi.get_name(f.start_ea)
     if len(n) > max_length:
-        n = "%s..." % n[:max_length]
+        n = f"{n[:max_length]}..."
     return n
 
 
@@ -121,9 +121,8 @@ def find_file_features(extractor):
     for (feature, ea) in extractor.extract_file_features():
         if ea:
             file_features[feature].add(ea)
-        else:
-            if feature not in file_features:
-                file_features[feature] = set()
+        elif feature not in file_features:
+            file_features[feature] = set()
     return file_features
 
 
@@ -135,7 +134,7 @@ def find_file_matches(ruleset, file_features):
 
 def update_wait_box(text):
     """update the IDA wait box"""
-    ida_kernwin.replace_wait_box("capa explorer...%s" % text)
+    ida_kernwin.replace_wait_box(f"capa explorer...{text}")
 
 
 class UserCancelledError(Exception):
@@ -160,7 +159,7 @@ class CapaExplorerProgressIndicator(QtCore.QObject):
         """
         if ida_kernwin.user_cancelled():
             raise UserCancelledError("user cancelled")
-        self.progress.emit("extracting features from %s" % text)
+        self.progress.emit(f"extracting features from {text}")
 
 
 class CapaExplorerFeatureExtractor(capa.features.extractors.ida.extractor.IdaFeatureExtractor):
@@ -186,12 +185,13 @@ class QLineEditClicked(QtWidgets.QLineEdit):
     def mouseReleaseEvent(self, e):
         """ """
         old = self.text()
-        new = str(
+        if new := str(
             QtWidgets.QFileDialog.getExistingDirectory(
-                self.parent(), "Please select a capa rules directory", settings.user.get(CAPA_SETTINGS_RULE_PATH, "")
+                self.parent(),
+                "Please select a capa rules directory",
+                settings.user.get(CAPA_SETTINGS_RULE_PATH, ""),
             )
-        )
-        if new:
+        ):
             self.setText(new)
         else:
             self.setText(old)
@@ -579,7 +579,7 @@ class CapaExplorerForm(idaapi.PluginForm):
         @param new_ea: destination ea
         @param old_ea: source ea
         """
-        if not self.view_tabs.currentIndex() in (0, 1):
+        if self.view_tabs.currentIndex() not in (0, 1):
             return
 
         if idaapi.get_widget_type(widget) != idaapi.BWN_DISASM:
@@ -643,7 +643,7 @@ class CapaExplorerForm(idaapi.PluginForm):
         try:
             # TODO refactor: this first part is identical to capa.main.get_rules
             if not os.path.exists(rule_path):
-                raise IOError("rule path %s does not exist or cannot be accessed" % rule_path)
+                raise IOError(f"rule path {rule_path} does not exist or cannot be accessed")
 
             rule_paths = []
             if os.path.isfile(rule_path):
@@ -690,8 +690,9 @@ class CapaExplorerForm(idaapi.PluginForm):
             return False
         except Exception as e:
             capa.ida.helpers.inform_user_ida_ui(
-                "Failed to load capa rules from %s" % settings.user[CAPA_SETTINGS_RULE_PATH]
+                f"Failed to load capa rules from {settings.user[CAPA_SETTINGS_RULE_PATH]}"
             )
+
             logger.error("Failed to load rules from %s (error: %s).", settings.user[CAPA_SETTINGS_RULE_PATH], e)
             logger.error(
                 "Make sure your file directory contains properly formatted capa rules. You can download the standard collection of capa rules from https://github.com/fireeye/capa-rules."
@@ -844,13 +845,11 @@ class CapaExplorerForm(idaapi.PluginForm):
 
     def load_capa_function_results(self):
         """ """
-        if not self.rules_cache or not self.ruleset_cache:
-            # only reload rules if caches are empty
-            if not self.load_capa_rules():
-                return False
-        else:
+        if self.rules_cache and self.ruleset_cache:
             logger.info('Using cached ruleset, click "Reset" to reload rules from disk.')
 
+        elif not self.load_capa_rules():
+            return False
         if ida_kernwin.user_cancelled():
             logger.info("User cancelled analysis.")
             return False
@@ -860,7 +859,7 @@ class CapaExplorerForm(idaapi.PluginForm):
             # must use extractor to get function, as capa analysis requires casted object
             extractor = CapaExplorerFeatureExtractor()
         except Exception as e:
-            logger.error("Failed to load IDA feature extractor (error: %s)" % e)
+            logger.error(f"Failed to load IDA feature extractor (error: {e})")
             return False
 
         if ida_kernwin.user_cancelled():
@@ -893,7 +892,7 @@ class CapaExplorerForm(idaapi.PluginForm):
                         for (ea, _) in res:
                             func_features[capa.features.common.MatchedRule(name)].add(ea)
                 except Exception as e:
-                    logger.error("Failed to match function/basic block rule scope (error: %s)" % e)
+                    logger.error(f"Failed to match function/basic block rule scope (error: {e})")
                     return False
             else:
                 func_features = {}
@@ -901,7 +900,7 @@ class CapaExplorerForm(idaapi.PluginForm):
             logger.info("User cancelled analysis.")
             return False
         except Exception as e:
-            logger.error("Failed to extract function features (error: %s)" % e)
+            logger.error(f"Failed to extract function features (error: {e})")
             return False
 
         if ida_kernwin.user_cancelled():
@@ -927,10 +926,10 @@ class CapaExplorerForm(idaapi.PluginForm):
                     for (ea, _) in res:
                         file_features[capa.features.common.MatchedRule(name)].add(ea)
             except Exception as e:
-                logger.error("Failed to match file scope rules (error: %s)" % e)
+                logger.error(f"Failed to match file scope rules (error: {e})")
                 return False
         except Exception as e:
-            logger.error("Failed to extract file features (error: %s)" % e)
+            logger.error(f"Failed to extract file features (error: {e})")
             return False
 
         if ida_kernwin.user_cancelled():
@@ -952,7 +951,7 @@ class CapaExplorerForm(idaapi.PluginForm):
                 "capa rules directory: %s (%d rules)" % (settings.user[CAPA_SETTINGS_RULE_PATH], len(self.rules_cache))
             )
         except Exception as e:
-            logger.error("Failed to render views (error: %s)" % e)
+            logger.error(f"Failed to render views (error: {e})")
             return False
 
         return True
@@ -1042,7 +1041,7 @@ class CapaExplorerForm(idaapi.PluginForm):
         try:
             rule = capa.rules.Rule.from_yaml(rule_text)
         except Exception as e:
-            self.set_rulegen_status("Failed to compile rule (%s)" % e)
+            self.set_rulegen_status(f"Failed to compile rule ({e})")
             return
 
         # create deep copy of current rules, add our new rule
@@ -1075,7 +1074,7 @@ class CapaExplorerForm(idaapi.PluginForm):
                 0x0,
             )
         except Exception as e:
-            self.set_rulegen_status("Failed to match rule (%s)" % e)
+            self.set_rulegen_status(f"Failed to match rule ({e})")
             return
 
         if tuple(
@@ -1152,11 +1151,10 @@ class CapaExplorerForm(idaapi.PluginForm):
 
         s = json.dumps(self.doc, sort_keys=True, cls=capa.render.json.CapaJsonObjectEncoder).encode("utf-8")
 
-        path = self.ask_user_capa_json_file()
-        if not path:
+        if path := self.ask_user_capa_json_file():
+            write_file(path, s)
+        else:
             return
-
-        write_file(path, s)
 
     def save_function_analysis(self):
         """ """
@@ -1165,11 +1163,10 @@ class CapaExplorerForm(idaapi.PluginForm):
             idaapi.info("No rule to save.")
             return
 
-        path = self.ask_user_capa_rule_file()
-        if not path:
+        if path := self.ask_user_capa_rule_file():
+            write_file(path, s)
+        else:
             return
-
-        write_file(path, s)
 
     def slot_checkbox_limit_by_changed(self, state):
         """slot activated if checkbox clicked

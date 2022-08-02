@@ -100,7 +100,7 @@ def render_matches_by_function(doc):
             continue
         ostream.writeln("function at 0x%X with %d features: " % (va, feature_count))
         for rule_name in matches_by_function[va]:
-            ostream.writeln("  - " + rule_name)
+            ostream.writeln(f"  - {rule_name}")
 
     ostream.write("\n")
     return ostream.getvalue()
@@ -175,11 +175,13 @@ def main(argv=None):
     capabilities, counts = capa.main.find_capabilities(rules, extractor)
     meta["analysis"].update(counts)
 
-    if capa.main.has_file_limitation(rules, capabilities):
-        # bail if capa encountered file limitation e.g. a packed binary
-        # do show the output in verbose mode, though.
-        if not (args.verbose or args.vverbose or args.json):
-            return -1
+    if (
+        capa.main.has_file_limitation(rules, capabilities)
+        and not args.verbose
+        and not args.vverbose
+        and not args.json
+    ):
+        return -1
 
     # colorama will detect:
     #  - when on Windows console, and fixup coloring, and

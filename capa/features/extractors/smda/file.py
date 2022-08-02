@@ -35,7 +35,7 @@ def extract_file_import_names(smda_report, buf):
                 for name in capa.features.extractors.helpers.generate_symbols(library_name, func.name):
                     yield Import(name), va
             elif func.is_ordinal:
-                for name in capa.features.extractors.helpers.generate_symbols(library_name, "#%s" % func.ordinal):
+                for name in capa.features.extractors.helpers.generate_symbols(library_name, f"#{func.ordinal}"):
                     yield Import(name), va
 
 
@@ -64,9 +64,6 @@ def extract_file_function_names(smda_report, **kwargs):
     """
     extract the names of statically-linked library functions.
     """
-    if False:
-        # using a `yield` here to force this to be a generator, not function.
-        yield NotImplementedError("SMDA doesn't have library matching")
     return
 
 
@@ -87,8 +84,7 @@ def extract_features(smda_report, buf):
     """
 
     for file_handler in FILE_HANDLERS:
-        for feature, va in file_handler(smda_report=smda_report, buf=buf):
-            yield feature, va
+        yield from file_handler(smda_report=smda_report, buf=buf)
 
 
 FILE_HANDLERS = (

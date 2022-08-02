@@ -41,7 +41,9 @@ SUPPORTED_ARCH_TYPES = ("metapc",)
 
 
 def inform_user_ida_ui(message):
-    idaapi.info("%s. Please refer to IDA Output window for more information." % message)
+    idaapi.info(
+        f"{message}. Please refer to IDA Output window for more information."
+    )
 
 
 def is_supported_ida_version():
@@ -50,8 +52,9 @@ def is_supported_ida_version():
         warning_msg = "This plugin does not support your IDA Pro version"
         logger.warning(warning_msg)
         logger.warning(
-            "Your IDA Pro version is: %s. Supported versions are: %s." % (version, ", ".join(SUPPORTED_IDA_VERSIONS))
+            f'Your IDA Pro version is: {version}. Supported versions are: {", ".join(SUPPORTED_IDA_VERSIONS)}.'
         )
+
         return False
     return True
 

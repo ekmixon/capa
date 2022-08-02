@@ -66,12 +66,7 @@ def xfail(condition, reason=None):
             # we don't expect an exception, so the test should fail
             raise
     else:
-        if not condition:
-            # here we expect the block to run successfully,
-            # and we've received no exception,
-            # so this is good
-            pass
-        else:
+        if condition:
             # we expected an exception, but didn't find one. that's an error.
             raise RuntimeError("expected to fail, but didn't")
 
@@ -211,7 +206,7 @@ def get_data_path_by_name(name):
     elif name == "7351f.elf":
         return os.path.join(CD, "data", "7351f8a40c5450557b24622417fc478d.elf_")
     else:
-        raise ValueError("unexpected sample fixture: %s" % name)
+        raise ValueError(f"unexpected sample fixture: {name}")
 
 
 def get_sample_md5_by_name(name):
@@ -258,7 +253,7 @@ def get_sample_md5_by_name(name):
     elif name == "7351f.elf":
         return "7351f8a40c5450557b24622417fc478d"
     else:
-        raise ValueError("unexpected sample fixture: %s" % name)
+        raise ValueError(f"unexpected sample fixture: {name}")
 
 
 def resolve_sample(sample):
@@ -561,9 +556,9 @@ def do_test_feature_presence(get_extractor, sample, scope, feature, expected):
     extractor = get_extractor(sample)
     features = scope(extractor)
     if expected:
-        msg = "%s should be found in %s" % (str(feature), scope.__name__)
+        msg = f"{str(feature)} should be found in {scope.__name__}"
     else:
-        msg = "%s should not be found in %s" % (str(feature), scope.__name__)
+        msg = f"{str(feature)} should not be found in {scope.__name__}"
     assert feature.evaluate(features) == expected, msg
 
 

@@ -23,16 +23,13 @@ def bold2(s: str) -> str:
 
 def hex(n: int) -> str:
     """render the given number using upper case hex, like: 0x123ABC"""
-    if n < 0:
-        return "-0x%X" % (-n)
-    else:
-        return "0x%X" % n
+    return "-0x%X" % (-n) if n < 0 else "0x%X" % n
 
 
 def parse_parts_id(s: str):
     id = ""
     parts = s.split("::")
-    if len(parts) > 0:
+    if parts:
         last = parts.pop()
         last, _, id = last.rpartition(" ")
         id = id.lstrip("[").rstrip("]")
@@ -44,7 +41,7 @@ def format_parts_id(data):
     """
     format canonical representation of ATT&CK/MBC parts and ID
     """
-    return "%s [%s]" % ("::".join(data["parts"]), data["id"])
+    return f'{"::".join(data["parts"])} [{data["id"]}]'
 
 
 def capability_rules(doc):

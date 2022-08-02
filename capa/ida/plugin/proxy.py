@@ -63,10 +63,7 @@ class CapaExplorerRangeProxyModel(QtCore.QSortFilterProxyModel):
                 return True
             alpha = alpha.parent()
 
-        if self.index_has_accepted_children(row, parent):
-            return True
-
-        return False
+        return bool(self.index_has_accepted_children(row, parent))
 
     def index_has_accepted_children(self, row, parent):
         """return True if parent has one or more children that match filter, else False
@@ -99,16 +96,7 @@ class CapaExplorerRangeProxyModel(QtCore.QSortFilterProxyModel):
         data = index.internalPointer().data(CapaExplorerDataModel.COLUMN_INDEX_VIRTUAL_ADDRESS)
 
         # virtual address may be empty
-        if not data:
-            return False
-
-        # convert virtual address str to int
-        ea = int(data, 16)
-
-        if self.min_ea <= ea and ea < self.max_ea:
-            return True
-
-        return False
+        return self.min_ea <= int(data, 16) < self.max_ea if data else False
 
     def add_address_range_filter(self, min_ea, max_ea):
         """add new address range filter
@@ -170,10 +158,7 @@ class CapaExplorerSearchProxyModel(QtCore.QSortFilterProxyModel):
             alpha = alpha.parent()
 
         # this row is a parent, and a child matches, accept it
-        if self.index_has_accepted_children(row, parent):
-            return True
-
-        return False
+        return bool(self.index_has_accepted_children(row, parent))
 
     def index_has_accepted_children(self, row, parent):
         """returns True if the given row or its children should be accepted"""

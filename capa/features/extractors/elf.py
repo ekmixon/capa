@@ -8,10 +8,7 @@ logger = logging.getLogger(__name__)
 
 def align(v, alignment):
     remainder = v % alignment
-    if remainder == 0:
-        return v
-    else:
-        return v + (alignment - remainder)
+    return v if remainder == 0 else v + (alignment - remainder)
 
 
 class CorruptElfFile(ValueError):

@@ -34,9 +34,7 @@ def extract_function_loop(f):
 
     # construct control flow graph
     for bb in idaapi.FlowChart(f):
-        for succ in bb.succs():
-            edges.append((bb.start_ea, succ.start_ea))
-
+        edges.extend((bb.start_ea, succ.start_ea) for succ in bb.succs())
     if loops.has_loop(edges):
         yield Characteristic("loop"), f.start_ea
 
@@ -58,8 +56,7 @@ def extract_features(f):
         f (IDA func_t)
     """
     for func_handler in FUNCTION_HANDLERS:
-        for (feature, ea) in func_handler(f):
-            yield feature, ea
+        yield from func_handler(f)
 
 
 FUNCTION_HANDLERS = (extract_function_calls_to, extract_function_loop, extract_recursive_call)

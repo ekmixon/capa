@@ -50,11 +50,12 @@ def parse_feature_for_node(feature):
         # first, we need to grab the comment, if exists
         # next, we need to check for an embedded description
         feature, _, comment = feature.partition("#")
-        m = re.search(r"- count\(([a-zA-Z]+)\((.+)\s+=\s+(.+)\)\):\s*(.+)", feature)
-        if m:
+        if m := re.search(
+            r"- count\(([a-zA-Z]+)\((.+)\s+=\s+(.+)\)\):\s*(.+)", feature
+        ):
             # reconstruct count without description
             feature, value, description, count = m.groups()
-            feature = "- count(%s(%s)): %s" % (feature, value, count)
+            feature = f"- count({feature}({value})): {count}"
     elif not feature.startswith("#"):
         feature, _, comment = feature.partition("#")
         feature, _, description = feature.partition("=")
@@ -71,42 +72,35 @@ def parse_node_for_feature(feature, description, comment, depth):
         display += "%s%s\n" % (" " * depth, feature)
     elif description:
         if feature.startswith(("- and", "- or", "- optional", "- basic block", "- not")):
-            display += "%s%s" % (" " * depth, feature)
+            display += f'{" " * depth}{feature}'
             if comment:
-                display += " # %s" % comment
+                display += f" # {comment}"
             display += "\n%s- description: %s\n" % (" " * (depth + 2), description)
         elif feature.startswith("- string"):
-            display += "%s%s" % (" " * depth, feature)
+            display += f'{" " * depth}{feature}'
             if comment:
-                display += " # %s" % comment
+                display += f" # {comment}"
             display += "\n%sdescription: %s\n" % (" " * (depth + 2), description)
         elif feature.startswith("- count"):
-            # count is weird, we need to format description based on feature type, so we parse with regex
-            # assume format - count(<feature_name>(<feature_value>)): <count>
-            m = re.search(r"- count\(([a-zA-Z]+)\((.+)\)\): (.+)", feature)
-            if m:
+            if m := re.search(
+                r"- count\(([a-zA-Z]+)\((.+)\)\): (.+)", feature
+            ):
                 name, value, count = m.groups()
                 if name in ("string",):
-                    display += "%s%s" % (" " * depth, feature)
+                    display += f'{" " * depth}{feature}'
                     if comment:
-                        display += " # %s" % comment
+                        display += f" # {comment}"
                     display += "\n%sdescription: %s\n" % (" " * (depth + 2), description)
                 else:
-                    display += "%s- count(%s(%s = %s)): %s" % (
-                        " " * depth,
-                        name,
-                        value,
-                        description,
-                        count,
-                    )
+                    display += f'{" " * depth}- count({name}({value} = {description})): {count}'
                     if comment:
                         display += " # %s\n" % comment
         else:
-            display += "%s%s = %s" % (" " * depth, feature, description)
+            display += f'{" " * depth}{feature} = {description}'
             if comment:
                 display += " # %s\n" % comment
     else:
-        display += "%s%s" % (" " * depth, feature)
+        display += f'{" " * depth}{feature}'
         if comment:
             display += " # %s\n" % comment
 
@@ -148,9 +142,7 @@ def iterate_tree(o):
 def calc_item_depth(o):
     """ """
     depth = 0
-    while True:
-        if not o.parent():
-            break
+    while o.parent():
         depth += 1
         o = o.parent()
     return depth
@@ -210,15 +202,16 @@ class CapaExplorerRulgenPreview(QtWidgets.QTextEdit):
             "  meta:",
             "    name: <insert_name>",
             "    namespace: <insert_namespace>",
-            "    author: %s" % author,
-            "    scope: %s" % scope,
+            f"    author: {author}",
+            f"    scope: {scope}",
             "    references: <insert_references>",
             "    examples:",
             "      - %s:0x%X" % (capa.ida.helpers.get_file_md5().upper(), ea)
             if ea
-            else "      - %s" % (capa.ida.helpers.get_file_md5().upper()),
+            else f"      - {capa.ida.helpers.get_file_md5().upper()}",
             "  features:",
         ]
+
         self.setText("\n".join(metadata_default))
 
     def keyPressEvent(self, e):
@@ -492,7 +485,7 @@ class CapaExplorerRulgenEditor(QtWidgets.QTreeWidget):
         """ """
         rule_text = self.preview.toPlainText()
 
-        if -1 != rule_text.find("features:"):
+        if rule_text.find("features:") != -1:
             rule_text = rule_text[: rule_text.find("features:") + len("features:")]
             rule_text += "\n"
         else:
@@ -646,7 +639,7 @@ class CapaExplorerRulgenEditor(QtWidgets.QTreeWidget):
                 value = '"%s"' % capa.features.common.escape_string(k.get_value_str())
             else:
                 value = k.get_value_str()
-            self.new_feature_node(self.root, ("- %s: %s" % (k.name.lower(), value), ""))
+            self.new_feature_node(self.root, (f"- {k.name.lower()}: {value}", ""))
 
         # n > 1 features
         for (k, v) in filter(lambda t: t[1] > 1, counted):
@@ -679,23 +672,24 @@ class CapaExplorerRulgenEditor(QtWidgets.QTreeWidget):
                 parent.addChild(node)
 
         def build(parent, nodes):
-            if nodes:
-                child_lvl = nodes[0].capa_level
-                while nodes:
-                    node = nodes.pop(0)
-                    if node.capa_level == child_lvl:
-                        add_node(parent, node)
-                    elif node.capa_level > child_lvl:
-                        nodes.insert(0, node)
-                        build(parent.child(parent.childCount() - 1), nodes)
-                    else:
-                        parent = parent.parent() if parent.parent() else parent
-                        add_node(parent, node)
+            if not nodes:
+                return
+            child_lvl = nodes[0].capa_level
+            while nodes:
+                node = nodes.pop(0)
+                if node.capa_level == child_lvl:
+                    add_node(parent, node)
+                elif node.capa_level > child_lvl:
+                    nodes.insert(0, node)
+                    build(parent.child(parent.childCount() - 1), nodes)
+                else:
+                    parent = parent.parent() or parent
+                    add_node(parent, node)
 
         self.reset_view()
 
         # check for lack of features block
-        if -1 == rule_text.find("features:"):
+        if rule_text.find("features:") == -1:
             return
 
         rule_features = rule_text[rule_text.find("features:") + len("features:") :].strip()
@@ -802,8 +796,7 @@ class CapaExplorerRulegenFeatures(QtWidgets.QTreeWidget):
 
     def slot_add_selected_features(self, action):
         """ """
-        selected = [item.data(0, 0x100) for item in self.selectedItems()]
-        if selected:
+        if selected := [item.data(0, 0x100) for item in self.selectedItems()]:
             self.editor.update_features(selected)
 
     def slot_add_n_bytes_feature(self, action):
@@ -852,8 +845,7 @@ class CapaExplorerRulegenFeatures(QtWidgets.QTreeWidget):
         """ """
         if text:
             for o in iterate_tree(self):
-                data = o.data(0, 0x100)
-                if data:
+                if data := o.data(0, 0x100):
                     to_match = data.get_value_str()
                     if not to_match or text.lower() not in to_match.lower():
                         if not o.isHidden():
@@ -984,7 +976,7 @@ class CapaExplorerRulegenFeatures(QtWidgets.QTreeWidget):
             value = feature.get_value_str()
             if isinstance(feature, (capa.features.common.String,)):
                 value = '"%s"' % capa.features.common.escape_string(value)
-            return "%s(%s)" % (name, value)
+            return f"{name}({value})"
 
         for (feature, eas) in sorted(features.items(), key=lambda k: sorted(k[1])):
             if isinstance(feature, capa.features.basicblock.BasicBlock):
@@ -1014,11 +1006,7 @@ class CapaExplorerRulegenFeatures(QtWidgets.QTreeWidget):
                         self.parent_items[feature], (format_feature(feature), format_address(ea)), feature=feature
                     )
             else:
-                if eas:
-                    ea = eas.pop()
-                else:
-                    # some features may not have an address e.g. "format"
-                    ea = ""
+                ea = eas.pop() if eas else ""
                 for (i, v) in enumerate((format_feature(feature), format_address(ea))):
                     self.parent_items[feature].setText(i, v)
                 self.parent_items[feature].setData(0, 0x100, feature)
@@ -1170,8 +1158,7 @@ class CapaExplorerQtreeView(QtWidgets.QTreeView):
             yield self.new_action(*action)
 
         # add default actions
-        for action in self.load_default_context_menu_actions(data):
-            yield action
+        yield from self.load_default_context_menu_actions(data)
 
     def load_default_context_menu(self, pos, item, model_index):
         """create default custom context menu

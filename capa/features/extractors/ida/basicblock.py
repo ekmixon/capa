@@ -62,13 +62,11 @@ def is_mov_imm_to_stack(insn):
     if insn.Op2.type != idaapi.o_imm:
         return False
 
-    if not helpers.is_op_stack_var(insn.ea, 0):
-        return False
-
-    if not insn.get_canon_mnem().startswith("mov"):
-        return False
-
-    return True
+    return (
+        bool(insn.get_canon_mnem().startswith("mov"))
+        if helpers.is_op_stack_var(insn.ea, 0)
+        else False
+    )
 
 
 def bb_contains_stackstring(f, bb):
@@ -119,8 +117,7 @@ def extract_features(f, bb):
         bb (IDA BasicBlock)
     """
     for bb_handler in BASIC_BLOCK_HANDLERS:
-        for (feature, ea) in bb_handler(f, bb):
-            yield feature, ea
+        yield from bb_handler(f, bb)
     yield BasicBlock(), bb.start_ea
 
 

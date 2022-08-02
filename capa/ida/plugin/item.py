@@ -114,9 +114,7 @@ class CapaExplorerDataItem:
 
     def row(self):
         """get row location"""
-        if self.pred:
-            return self.pred.children.index(self)
-        return 0
+        return self.pred.children.index(self) if self.pred else 0
 
     def setData(self, column, value):
         """set data in column
@@ -128,8 +126,7 @@ class CapaExplorerDataItem:
 
     def children(self):
         """yield children"""
-        for child in self.children:
-            yield child
+        yield from self.children
 
     def removeChildren(self):
         """remove children"""
@@ -225,7 +222,7 @@ class CapaExplorerFunctionItem(CapaExplorerDataItem):
         """return function name"""
         info = super(CapaExplorerFunctionItem, self).info
         display = info_to_name(info)
-        return display if display else info
+        return display or info
 
     @info.setter
     def info(self, display):

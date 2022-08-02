@@ -24,13 +24,12 @@ PATTERN_SINGLENUM = re.compile(r"[+\-] (?P<num>[0-9])")
 
 
 def get_bitness(smda_report):
-    if smda_report.architecture == "intel":
-        if smda_report.bitness == 32:
-            return BITNESS_X32
-        elif smda_report.bitness == 64:
-            return BITNESS_X64
-    else:
+    if smda_report.architecture != "intel":
         raise NotImplementedError
+    if smda_report.bitness == 32:
+        return BITNESS_X32
+    elif smda_report.bitness == 64:
+        return BITNESS_X64
 
 
 def extract_insn_api_features(f, bb, insn):
@@ -46,11 +45,12 @@ def extract_insn_api_features(f, bb, insn):
     elif insn.offset in f.outrefs:
         current_function = f
         current_instruction = insn
-        for index in range(THUNK_CHAIN_DEPTH_DELTA):
+        for _ in range(THUNK_CHAIN_DEPTH_DELTA):
             if current_function and len(current_function.outrefs[current_instruction.offset]) == 1:
                 target = current_function.outrefs[current_instruction.offset][0]
-                referenced_function = current_function.smda_report.getFunction(target)
-                if referenced_function:
+                if referenced_function := current_function.smda_report.getFunction(
+                    target
+                ):
                     # TODO SMDA: implement this function for both jmp and call, checking if function has 1 instruction which refs an API
                     if referenced_function.isApiThunk():
                         api_entry = (
@@ -65,7 +65,7 @@ def extract_insn_api_features(f, bb, insn):
                                 yield API(name), insn.offset
                     elif referenced_function.num_instructions == 1 and referenced_function.num_outrefs == 1:
                         current_function = referenced_function
-                        current_instruction = [i for i in referenced_function.getInstructions()][0]
+                        current_instruction = list(referenced_function.getInstructions())[0]
                 else:
                     return
 
@@ -163,9 +163,7 @@ def detect_ascii_len(smda_report, offset):
         ascii_len += 1
         rva += 1
         char = smda_report.buffer[rva]
-    if char == 0:
-        return ascii_len
-    return 0
+    return ascii_len if char == 0 else 0
 
 
 def detect_unicode_len(smda_report, offset):
@@ -180,9 +178,7 @@ def detect_unicode_len(smda_report, offset):
         rva += 2
         char = smda_report.buffer[rva]
         second_char = smda_report.buffer[rva + 1]
-    if char == 0 and second_char == 0:
-        return unicode_len
-    return 0
+    return unicode_len if char == 0 and second_char == 0 else 0
 
 
 def read_string(smda_report, offset):
@@ -201,8 +197,7 @@ def extract_insn_string_features(f, bb, insn):
     #     push    offset aAcr     ; "ACR  > "
     for data_ref in insn.getDataRefs():
         for v in derefs(f.smda_report, data_ref):
-            string_read = read_string(f.smda_report, v)
-            if string_read:
+            if string_read := read_string(f.smda_report, v):
                 yield String(string_read.rstrip("\x00")), insn.offset
 
 
@@ -214,7 +209,7 @@ def extract_insn_offset_features(f, bb, insn):
     #     mov eax, [esi + ecx + 16384]
     operands = [o.strip() for o in insn.operands.split(",")]
     for operand in operands:
-        if not "ptr" in operand:
+        if "ptr" not in operand:
             continue
         if "esp" in operand or "ebp" in operand or "rbp" in operand:
             continue
@@ -222,10 +217,10 @@ def extract_insn_offset_features(f, bb, insn):
         number_hex = re.search(PATTERN_HEXNUM, operand)
         number_int = re.search(PATTERN_SINGLENUM, operand)
         if number_hex:
-            number = int(number_hex.group("num"), 16)
+            number = int(number_hex["num"], 16)
             number = -1 * number if number_hex.group().startswith("-") else number
         elif number_int:
-            number = int(number_int.group("num"))
+            number = int(number_int["num"])
             number = -1 * number if number_int.group().startswith("-") else number
         yield Offset(number), insn.offset
         yield Offset(number, bitness=get_bitness(f.smda_report)), insn.offset
@@ -241,7 +236,7 @@ def is_security_cookie(f, bb, insn):
         return False
     for index, block in enumerate(f.getBlocks()):
         # expect security cookie init in first basic block within first bytes (instructions)
-        block_instructions = [i for i in block.getInstructions()]
+        block_instructions = list(block.getInstructions())
         if index == 0 and insn.offset < (block_instructions[0].offset + SECURITY_COOKIE_BYTES_DELTA):
             return True
         # ... or within last bytes (instructions) before a return
@@ -286,9 +281,12 @@ def extract_insn_peb_access_characteristic_features(f, bb, insn):
 
     operands = [o.strip() for o in insn.operands.split(",")]
     for operand in operands:
-        if "fs:" in operand and "0x30" in operand:
-            yield Characteristic("peb access"), insn.offset
-        elif "gs:" in operand and "0x60" in operand:
+        if (
+            "fs:" in operand
+            and "0x30" in operand
+            or "gs:" in operand
+            and "0x60" in operand
+        ):
             yield Characteristic("peb access"), insn.offset
 
 
@@ -306,19 +304,20 @@ def extract_insn_cross_section_cflow(f, bb, insn):
     """
     inspect the instruction for a CALL or JMP that crosses section boundaries.
     """
-    if insn.mnemonic in ["call", "jmp"]:
-        if insn.offset in f.apirefs:
-            return
+    if insn.mnemonic not in ["call", "jmp"]:
+        return
+    if insn.offset in f.apirefs:
+        return
 
-        smda_report = insn.smda_function.smda_report
-        if insn.offset in f.outrefs:
-            for target in f.outrefs[insn.offset]:
-                if smda_report.getSection(insn.offset) != smda_report.getSection(target):
-                    yield Characteristic("cross section flow"), insn.offset
-        elif insn.operands.startswith("0x"):
-            target = int(insn.operands, 16)
+    smda_report = insn.smda_function.smda_report
+    if insn.offset in f.outrefs:
+        for target in f.outrefs[insn.offset]:
             if smda_report.getSection(insn.offset) != smda_report.getSection(target):
                 yield Characteristic("cross section flow"), insn.offset
+    elif insn.operands.startswith("0x"):
+        target = int(insn.operands, 16)
+        if smda_report.getSection(insn.offset) != smda_report.getSection(target):
+            yield Characteristic("cross section flow"), insn.offset
 
 
 # this is a feature that's most relevant at the function scope,
@@ -373,8 +372,7 @@ def extract_features(f, bb, insn):
       Tuple[Feature, int]: the features and their location found in this insn.
     """
     for insn_handler in INSTRUCTION_HANDLERS:
-        for feature, va in insn_handler(f, bb, insn):
-            yield feature, va
+        yield from insn_handler(f, bb, insn)
 
 
 INSTRUCTION_HANDLERS = (

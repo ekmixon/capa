@@ -21,10 +21,7 @@ tabulate.PRESERVE_WHITESPACE = True
 
 def width(s: str, character_count: int) -> str:
     """pad the given string to at least `character_count`"""
-    if len(s) < character_count:
-        return s + " " * (character_count - len(s))
-    else:
-        return s
+    return s + " " * (character_count - len(s)) if len(s) < character_count else s
 
 
 def render_meta(doc, ostream: StringIO):
@@ -137,9 +134,9 @@ def render_attack(doc, ostream: StringIO):
         inner_rows = []
         for (technique, subtechnique, id) in sorted(techniques):
             if subtechnique is None:
-                inner_rows.append("%s %s" % (rutils.bold(technique), id))
+                inner_rows.append(f"{rutils.bold(technique)} {id}")
             else:
-                inner_rows.append("%s::%s %s" % (rutils.bold(technique), subtechnique, id))
+                inner_rows.append(f"{rutils.bold(technique)}::{subtechnique} {id}")
         rows.append(
             (
                 rutils.bold(tactic.upper()),
@@ -183,9 +180,9 @@ def render_mbc(doc, ostream: StringIO):
         inner_rows = []
         for (behavior, method, id) in sorted(behaviors):
             if method is None:
-                inner_rows.append("%s [%s]" % (rutils.bold(behavior), id))
+                inner_rows.append(f"{rutils.bold(behavior)} [{id}]")
             else:
-                inner_rows.append("%s::%s [%s]" % (rutils.bold(behavior), method, id))
+                inner_rows.append(f"{rutils.bold(behavior)}::{method} [{id}]")
         rows.append(
             (
                 rutils.bold(objective.upper()),

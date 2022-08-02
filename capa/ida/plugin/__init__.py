@@ -47,9 +47,11 @@ class CapaExplorerPlugin(idaapi.plugin_t):
             return idaapi.PLUGIN_SKIP
         if not capa.ida.helpers.is_supported_file_type():
             return idaapi.PLUGIN_SKIP
-        if not capa.ida.helpers.is_supported_arch_type():
-            return idaapi.PLUGIN_SKIP
-        return idaapi.PLUGIN_OK
+        return (
+            idaapi.PLUGIN_OK
+            if capa.ida.helpers.is_supported_arch_type()
+            else idaapi.PLUGIN_SKIP
+        )
 
     def term(self):
         """called when IDA is unloading the plugin"""
@@ -105,7 +107,7 @@ class OnUpdatedActionsHook(ida_kernwin.UI_Hooks):
 
 def install_icon():
     plugin_name = CapaExplorerPlugin.PLUGIN_NAME
-    action_name = "Edit/Plugins/" + plugin_name
+    action_name = f"Edit/Plugins/{plugin_name}"
 
     if action_name not in ida_kernwin.get_registered_actions():
         # keep the hook registered

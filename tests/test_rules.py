@@ -118,13 +118,13 @@ def test_rule_descriptions():
 
     def rec(statement):
         if isinstance(statement, capa.engine.Statement):
-            assert statement.description == statement.name.lower() + " description"
+            assert statement.description == f"{statement.name.lower()} description"
             for child in statement.get_children():
                 rec(child)
         else:
             if isinstance(statement.value, str):
                 assert "description" not in statement.value
-            assert statement.description == statement.name + " description"
+            assert statement.description == f"{statement.name} description"
 
     rec(r.statement)
 
@@ -461,12 +461,12 @@ def test_number_symbol():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (Number(1) in children) == True
-    assert (Number(0xFFFFFFFF) in children) == True
-    assert (Number(2, description="symbol name") in children) == True
-    assert (Number(3, description="symbol name") in children) == True
-    assert (Number(4, description="symbol name = another name") in children) == True
-    assert (Number(0x100, description="symbol name") in children) == True
+    assert Number(1) in children
+    assert Number(0xFFFFFFFF) in children
+    assert Number(2, description="symbol name") in children
+    assert Number(3, description="symbol name") in children
+    assert Number(4, description="symbol name = another name") in children
+    assert Number(0x100, description="symbol name") in children
 
 
 def test_count_number_symbol():
@@ -581,11 +581,11 @@ def test_offset_symbol():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (Offset(1) in children) == True
-    assert (Offset(2, description="symbol name") in children) == True
-    assert (Offset(3, description="symbol name") in children) == True
-    assert (Offset(4, description="symbol name = another name") in children) == True
-    assert (Offset(0x100, description="symbol name") in children) == True
+    assert Offset(1) in children
+    assert Offset(2, description="symbol name") in children
+    assert Offset(3, description="symbol name") in children
+    assert Offset(4, description="symbol name = another name") in children
+    assert Offset(0x100, description="symbol name") in children
 
 
 def test_count_offset_symbol():
@@ -725,8 +725,8 @@ def test_explicit_string_values_int():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (String("123") in children) == True
-    assert (String("0x123") in children) == True
+    assert String("123") in children
+    assert String("0x123") in children
 
 
 def test_string_values_special_characters():
@@ -744,8 +744,8 @@ def test_string_values_special_characters():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (String("hello\r\nworld") in children) == True
-    assert (String("bye\nbye") in children) == True
+    assert String("hello\r\nworld") in children
+    assert String("bye\nbye") in children
 
 
 def test_substring_feature():
@@ -763,9 +763,9 @@ def test_substring_feature():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (Substring("abc") in children) == True
-    assert (Substring("def") in children) == True
-    assert (Substring("gh\ni") in children) == True
+    assert Substring("abc") in children
+    assert Substring("def") in children
+    assert Substring("gh\ni") in children
 
 
 def test_substring_description():
@@ -782,7 +782,7 @@ def test_substring_description():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (Substring("abc") in children) == True
+    assert Substring("abc") in children
 
 
 def test_regex_values_always_string():
@@ -992,9 +992,13 @@ def test_function_name_features():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (FunctionName("strcpy") in children) == True
-    assert (FunctionName("strcmp", description="copy from here to there") in children) == True
-    assert (FunctionName("strdup", description="duplicate a string") in children) == True
+    assert FunctionName("strcpy") in children
+    assert (
+        FunctionName("strcmp", description="copy from here to there")
+        in children
+    )
+
+    assert FunctionName("strdup", description="duplicate a string") in children
 
 
 def test_os_features():
@@ -1011,8 +1015,8 @@ def test_os_features():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (OS(OS_WINDOWS) in children) == True
-    assert (OS(OS_LINUX) not in children) == True
+    assert OS(OS_WINDOWS) in children
+    assert OS(OS_LINUX) not in children
 
 
 def test_format_features():
@@ -1029,8 +1033,8 @@ def test_format_features():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (Format(FORMAT_PE) in children) == True
-    assert (Format(FORMAT_ELF) not in children) == True
+    assert Format(FORMAT_PE) in children
+    assert Format(FORMAT_ELF) not in children
 
 
 def test_arch_features():
@@ -1047,5 +1051,5 @@ def test_arch_features():
     )
     r = capa.rules.Rule.from_yaml(rule)
     children = list(r.statement.get_children())
-    assert (Arch(ARCH_AMD64) in children) == True
-    assert (Arch(ARCH_I386) not in children) == True
+    assert Arch(ARCH_AMD64) in children
+    assert Arch(ARCH_I386) not in children

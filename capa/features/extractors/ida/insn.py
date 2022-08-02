@@ -78,7 +78,7 @@ def check_for_api_call(ctx, insn):
             break
 
     if info:
-        yield "%s.%s" % (info[0], info[1])
+        yield f"{info[0]}.{info[1]}"
 
 
 def extract_insn_api_features(f, bb, insn):
@@ -92,7 +92,7 @@ def extract_insn_api_features(f, bb, insn):
     example:
         call dword [0x00473038]
     """
-    if not insn.get_canon_mnem() in ("call", "jmp"):
+    if insn.get_canon_mnem() not in ("call", "jmp"):
         return
 
     for api in check_for_api_call(f.ctx, insn):
@@ -186,8 +186,7 @@ def extract_insn_string_features(f, bb, insn):
     """
     ref = capa.features.extractors.ida.helpers.find_data_reference_from_insn(insn)
     if ref != insn.ea:
-        found = capa.features.extractors.ida.helpers.find_string_at(ref)
-        if found:
+        if found := capa.features.extractors.ida.helpers.find_string_at(ref):
             yield String(found), insn.ea
 
 
@@ -285,12 +284,15 @@ def is_nzxor_stack_cookie_delta(f, bb, insn):
         return True
 
     # ... or within last bytes (instructions) before a return
-    if capa.features.extractors.ida.helpers.is_basic_block_return(bb) and insn.ea > (
-        bb.start_ea + capa.features.extractors.ida.helpers.basic_block_size(bb) - SECURITY_COOKIE_BYTES_DELTA
-    ):
-        return True
-
-    return False
+    return bool(
+        capa.features.extractors.ida.helpers.is_basic_block_return(bb)
+        and insn.ea
+        > (
+            bb.start_ea
+            + capa.features.extractors.ida.helpers.basic_block_size(bb)
+            - SECURITY_COOKIE_BYTES_DELTA
+        )
+    )
 
 
 def is_nzxor_stack_cookie(f, bb, insn):
@@ -302,12 +304,12 @@ def is_nzxor_stack_cookie(f, bb, insn):
     if is_nzxor_stack_cookie_delta(f, bb, insn):
         return True
     stack_cookie_regs = tuple(bb_stack_cookie_registers(bb))
-    if any(op_reg in stack_cookie_regs for op_reg in (insn.Op1.reg, insn.Op2.reg)):
-        # Example:
-        #   mov     eax, ___security_cookie
-        #   xor     eax, ebp
-        return True
-    return False
+    return any(
+        (
+            op_reg in stack_cookie_regs
+            for op_reg in (insn.Op1.reg, insn.Op2.reg)
+        )
+    )
 
 
 def extract_insn_nzxor_characteristic_features(f, bb, insn):
@@ -443,8 +445,7 @@ def extract_features(f, bb, insn):
         insn (IDA insn_t)
     """
     for inst_handler in INSTRUCTION_HANDLERS:
-        for (feature, ea) in inst_handler(f, bb, insn):
-            yield feature, ea
+        yield from inst_handler(f, bb, insn)
 
 
 INSTRUCTION_HANDLERS = (

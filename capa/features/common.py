@@ -35,12 +35,7 @@ def hex_string(h: str) -> str:
 def escape_string(s: str) -> str:
     """escape special characters"""
     s = repr(s)
-    if not s.startswith(('"', "'")):
-        # u'hello\r\nworld' -> hello\\r\\nworld
-        s = s[2:-1]
-    else:
-        # 'hello\r\nworld' -> hello\\r\\nworld
-        s = s[1:-1]
+    s = s[1:-1] if s.startswith(('"', "'")) else s[2:-1]
     s = s.replace("\\'", "'")  # repr() may escape "'" in some edge cases, remove
     s = s.replace('"', '\\"')  # repr() does not escape '"', add
     return s
@@ -58,13 +53,13 @@ class Feature:
         """
         super(Feature, self).__init__()
 
-        if bitness is not None:
-            if bitness not in VALID_BITNESS:
-                raise ValueError("bitness '%s' must be one of %s" % (bitness, VALID_BITNESS))
-            self.name = self.__class__.__name__.lower() + "/" + bitness
-        else:
+        if bitness is None:
             self.name = self.__class__.__name__.lower()
 
+        elif bitness not in VALID_BITNESS:
+            raise ValueError("bitness '%s' must be one of %s" % (bitness, VALID_BITNESS))
+        else:
+            self.name = f"{self.__class__.__name__.lower()}/{bitness}"
         self.value = value
         self.bitness = bitness
         self.description = description
@@ -85,13 +80,12 @@ class Feature:
         return str(self.value)
 
     def __str__(self):
-        if self.value is not None:
-            if self.description:
-                return "%s(%s = %s)" % (self.name, self.get_value_str(), self.description)
-            else:
-                return "%s(%s)" % (self.name, self.get_value_str())
+        if self.value is None:
+            return f"{self.name}"
+        if self.description:
+            return f"{self.name}({self.get_value_str()} = {self.description})"
         else:
-            return "%s" % self.name
+            return f"{self.name}({self.get_value_str()})"
 
     def __repr__(self):
         return str(self)
@@ -163,7 +157,7 @@ class Substring(String):
 
             # collect all locations
             locations = set()
-            for s in matches.keys():
+            for s in matches:
                 matches[s] = list(set(matches[s]))
                 locations.update(matches[s])
 
@@ -175,7 +169,7 @@ class Substring(String):
             return capa.engine.Result(False, _MatchedSubstring(self, None), [])
 
     def __str__(self):
-        return "substring(%s)" % self.value
+        return f"substring({self.value})"
 
 
 class _MatchedSubstring(Substring):
@@ -222,7 +216,7 @@ class Regex(String):
             if value.endswith("/i"):
                 value = value[: -len("i")]
             raise ValueError(
-                "invalid regular expression: %s it should use Python syntax, try it at https://pythex.org" % value
+                f"invalid regular expression: {value} it should use Python syntax, try it at https://pythex.org"
             )
 
     def evaluate(self, ctx):
@@ -252,7 +246,7 @@ class Regex(String):
 
             # collect all locations
             locations = set()
-            for s in matches.keys():
+            for s in matches:
                 matches[s] = list(set(matches[s]))
                 locations.update(matches[s])
 
@@ -265,7 +259,7 @@ class Regex(String):
             return capa.engine.Result(False, _MatchedRegex(self, None), [])
 
     def __str__(self):
-        return "regex(string =~ %s)" % self.value
+        return f"regex(string =~ {self.value})"
 
 
 class _MatchedRegex(Regex):

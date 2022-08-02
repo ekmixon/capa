@@ -111,8 +111,9 @@ def get_capa_results(args):
         return {
             "path": path,
             "status": "error",
-            "error": "input file does not appear to be a PE file: %s" % path,
+            "error": f"input file does not appear to be a PE file: {path}",
         }
+
     except capa.main.UnsupportedRuntimeError:
         return {
             "path": path,
@@ -120,11 +121,7 @@ def get_capa_results(args):
             "error": "unsupported runtime or Python interpreter",
         }
     except Exception as e:
-        return {
-            "path": path,
-            "status": "error",
-            "error": "unexpected error: %s" % (e),
-        }
+        return {"path": path, "status": "error", "error": f"unexpected error: {e}"}
 
     meta = capa.main.collect_metadata("", path, "", extractor)
     capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
@@ -141,82 +138,83 @@ def get_capa_results(args):
 
 
 def main(argv=None):
-    if argv is None:
-        argv = sys.argv[1:]
+    if argv is not None:
+        return
+    argv = sys.argv[1:]
 
-        parser = argparse.ArgumentParser(description="detect capabilities in programs.")
-        capa.main.install_common_args(parser, wanted={"rules", "signatures"})
-        parser.add_argument("input", type=str, help="Path to directory of files to recursively analyze")
-        parser.add_argument(
-            "-n", "--parallelism", type=int, default=multiprocessing.cpu_count(), help="parallelism factor"
-        )
-        parser.add_argument("--no-mp", action="store_true", help="disable subprocesses")
-        args = parser.parse_args(args=argv)
-        capa.main.handle_common_args(args)
+    parser = argparse.ArgumentParser(description="detect capabilities in programs.")
+    capa.main.install_common_args(parser, wanted={"rules", "signatures"})
+    parser.add_argument("input", type=str, help="Path to directory of files to recursively analyze")
+    parser.add_argument(
+        "-n", "--parallelism", type=int, default=multiprocessing.cpu_count(), help="parallelism factor"
+    )
+    parser.add_argument("--no-mp", action="store_true", help="disable subprocesses")
+    args = parser.parse_args(args=argv)
+    capa.main.handle_common_args(args)
 
-        try:
-            rules = capa.main.get_rules(args.rules)
-            rules = capa.rules.RuleSet(rules)
-            logger.info("successfully loaded %s rules", len(rules))
-        except (IOError, capa.rules.InvalidRule, capa.rules.InvalidRuleSet) as e:
-            logger.error("%s", str(e))
-            return -1
+    try:
+        rules = capa.main.get_rules(args.rules)
+        rules = capa.rules.RuleSet(rules)
+        logger.info("successfully loaded %s rules", len(rules))
+    except (IOError, capa.rules.InvalidRule, capa.rules.InvalidRuleSet) as e:
+        logger.error("%s", str(e))
+        return -1
 
-        try:
-            sig_paths = capa.main.get_signatures(args.signatures)
-        except (IOError) as e:
-            logger.error("%s", str(e))
-            return -1
+    try:
+        sig_paths = capa.main.get_signatures(args.signatures)
+    except (IOError) as e:
+        logger.error("%s", str(e))
+        return -1
 
-        samples = []
-        for (base, directories, files) in os.walk(args.input):
-            for file in files:
-                samples.append(os.path.join(base, file))
+    samples = []
+    for (base, directories, files) in os.walk(args.input):
+        for file in files:
+            samples.append(os.path.join(base, file))
 
-        def pmap(f, args, parallelism=multiprocessing.cpu_count()):
-            """apply the given function f to the given args using subprocesses"""
-            return multiprocessing.Pool(parallelism).imap(f, args)
+    def pmap(f, args, parallelism=multiprocessing.cpu_count()):
+        """apply the given function f to the given args using subprocesses"""
+        return multiprocessing.Pool(parallelism).imap(f, args)
 
-        def tmap(f, args, parallelism=multiprocessing.cpu_count()):
-            """apply the given function f to the given args using threads"""
-            return multiprocessing.pool.ThreadPool(parallelism).imap(f, args)
+    def tmap(f, args, parallelism=multiprocessing.cpu_count()):
+        """apply the given function f to the given args using threads"""
+        return multiprocessing.pool.ThreadPool(parallelism).imap(f, args)
 
-        def map(f, args, parallelism=None):
-            """apply the given function f to the given args in the current thread"""
-            for arg in args:
-                yield f(arg)
+    def map(f, args, parallelism=None):
+        """apply the given function f to the given args in the current thread"""
+        for arg in args:
+            yield f(arg)
 
-        if args.no_mp:
-            if args.parallelism == 1:
-                logger.debug("using current thread mapper")
-                mapper = map
-            else:
-                logger.debug("using threading mapper")
-                mapper = tmap
+    if args.no_mp:
+        if args.parallelism == 1:
+            logger.debug("using current thread mapper")
+            mapper = map
         else:
-            logger.debug("using process mapper")
-            mapper = pmap
+            logger.debug("using threading mapper")
+            mapper = tmap
+    else:
+        logger.debug("using process mapper")
+        mapper = pmap
 
-        results = {}
-        for result in mapper(
+    results = {}
+    for result in mapper(
             get_capa_results, [(rules, sig_paths, "pe", sample) for sample in samples], parallelism=args.parallelism
         ):
-            if result["status"] == "error":
-                logger.warning(result["error"])
-            elif result["status"] == "ok":
-                meta = result["ok"]["meta"]
-                capabilities = result["ok"]["capabilities"]
-                # our renderer expects to emit a json document for a single sample
-                # so we deserialize the json document, store it in a larger dict, and we'll subsequently re-encode.
-                results[result["path"]] = json.loads(capa.render.json.render(meta, rules, capabilities))
-            else:
-                raise ValueError("unexpected status: %s" % (result["status"]))
+        if result["status"] == "error":
+            logger.warning(result["error"])
+        elif result["status"] == "ok":
+            meta = result["ok"]["meta"]
+            capabilities = result["ok"]["capabilities"]
+            # our renderer expects to emit a json document for a single sample
+            # so we deserialize the json document, store it in a larger dict, and we'll subsequently re-encode.
+            results[result["path"]] = json.loads(capa.render.json.render(meta, rules, capabilities))
+        else:
+            raise ValueError(f'unexpected status: {result["status"]}')
 
-        print(json.dumps(results))
+    print(json.dumps(results))
 
-        logger.info("done.")
+    logger.info("done.")
 
-        return 0
+    return 0
 
 
 if __name__ == "__main__":

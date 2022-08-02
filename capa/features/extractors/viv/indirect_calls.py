@@ -62,10 +62,11 @@ def get_previous_instructions(vw: VivWorkspace, va: int) -> List[int]:
     #
     # from vivisect.const:
     # xref: (XR_FROM, XR_TO, XR_RTYPE, XR_RFLAG)
-    for (xfrom, _, _, xflag) in vw.getXrefsTo(va, REF_CODE):
-        if (xflag & FAR_BRANCH_MASK) != 0:
-            continue
-        ret.append(xfrom)
+    ret.extend(
+        xfrom
+        for xfrom, _, _, xflag in vw.getXrefsTo(va, REF_CODE)
+        if xflag & FAR_BRANCH_MASK == 0
+    )
 
     return ret
 
@@ -109,28 +110,26 @@ def find_definition(vw: VivWorkspace, va: int, reg: int) -> Tuple[int, Union[int
             continue
 
         opnd0 = insn.opers[0]
-        if not (isinstance(opnd0, i386RegOper) and opnd0.reg == reg and insn.mnem in DESTRUCTIVE_MNEMONICS):
+        if (
+            not isinstance(opnd0, i386RegOper)
+            or opnd0.reg != reg
+            or insn.mnem not in DESTRUCTIVE_MNEMONICS
+        ):
             q.extend(get_previous_instructions(vw, cur))
             continue
 
-        # if we reach here, the instruction is destructive to our target register.
-
-        # we currently only support extracting the constant from something like: `mov $reg, IAT`
-        # so, any other pattern results in an unknown value, represented by None.
-        # this is a good place to extend in the future, if we need more robust support.
         if insn.mnem != "mov":
             return (cur, None)
+        opnd1 = insn.opers[1]
+        if isinstance(opnd1, i386ImmOper):
+            return (cur, opnd1.getOperValue(opnd1))
+        elif isinstance(opnd1, i386ImmMemOper):
+            return (cur, opnd1.getOperAddr(opnd1))
+        elif isinstance(opnd1, Amd64RipRelOper):
+            return (cur, opnd1.getOperAddr(insn))
         else:
-            opnd1 = insn.opers[1]
-            if isinstance(opnd1, i386ImmOper):
-                return (cur, opnd1.getOperValue(opnd1))
-            elif isinstance(opnd1, i386ImmMemOper):
-                return (cur, opnd1.getOperAddr(opnd1))
-            elif isinstance(opnd1, Amd64RipRelOper):
-                return (cur, opnd1.getOperAddr(insn))
-            else:
-                # might be something like: `mov $reg, dword_401000[eax]`
-                return (cur, None)
+            # might be something like: `mov $reg, dword_401000[eax]`
+            return (cur, None)
 
     raise NotFoundError()
 

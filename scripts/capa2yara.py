@@ -95,7 +95,7 @@ private rule capa_pe_file : CAPA {
 
 def check_feature(statement, rulename):
     if statement in unsupported:
-        logger.info("unsupported: " + statement + " in rule: " + rulename)
+        logger.info(f"unsupported: {statement} in rule: {rulename}")
         return True
     else:
         return False
@@ -104,7 +104,7 @@ def check_feature(statement, rulename):
 def get_rule_url(path):
     path = re.sub(r"\.\.\/", "", path)
     path = re.sub(r"capa-rules\/", "", path)
-    return "https://github.com/fireeye/capa-rules/blob/master/" + path
+    return f"https://github.com/fireeye/capa-rules/blob/master/{path}"
 
 
 def convert_capa_number_to_yara_bytes(number):
@@ -113,7 +113,7 @@ def convert_capa_number_to_yara_bytes(number):
         sys.exit()
 
     number = re.sub(r"^0[xX]", "", number)
-    logger.info("number ok: " + repr(number))
+    logger.info(f"number ok: {repr(number)}")
 
     # include spaces every 2 hex
     bytesv = re.sub(r"(..)", r"\1 ", number)
@@ -124,7 +124,7 @@ def convert_capa_number_to_yara_bytes(number):
     bytesv = " ".join(bytesl)
 
     # fix spaces
-    bytesv = bytesv[1:] + " "
+    bytesv = f"{bytesv[1:]} "
 
     return bytesv
 
@@ -133,17 +133,16 @@ def convert_rule_name(rule_name):
 
     # yara rule names: "Identifiers must follow the same lexical conventions of the C programming language, they can contain any alphanumeric character and the underscore character, but the first character cannot be a digit. Rule identifiers are case sensitive and cannot exceed 128 characters." so we replace any non-alpanum with _
     rule_name = re.sub(r"\W", "_", rule_name)
-    rule_name = "capa_" + rule_name
+    rule_name = f"capa_{rule_name}"
 
     return rule_name
 
 
 def convert_description(statement):
     try:
-        desc = statement.description
-        if desc:
-            yara_desc = " // " + desc
-            logger.info("using desc: " + repr(yara_desc))
+        if desc := statement.description:
+            yara_desc = f" // {desc}"
+            logger.info(f"using desc: {repr(yara_desc)}")
             return yara_desc
     except:
         # no description

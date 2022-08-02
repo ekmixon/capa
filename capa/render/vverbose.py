@@ -30,7 +30,7 @@ def render_locations(ostream, match):
         if len(locations) > 4:
             # don't display too many locations, because it becomes very noisy.
             # probably only the first handful of locations will be useful for inspection.
-            ostream.write(", ".join(map(rutils.hex, locations[0:4])))
+            ostream.write(", ".join(map(rutils.hex, locations[:4])))
             ostream.write(", and %d more..." % (len(locations) - 4))
         else:
             ostream.write(", ".join(map(rutils.hex, locations)))
@@ -42,12 +42,12 @@ def render_statement(ostream, match, statement, indent=0):
         ostream.write(statement["type"])
         ostream.write(":")
         if statement.get("description"):
-            ostream.write(" = %s" % statement["description"])
+            ostream.write(f' = {statement["description"]}')
         ostream.writeln("")
     elif statement["type"] == "some":
         ostream.write("%d or more:" % (statement["count"]))
         if statement.get("description"):
-            ostream.write(" = %s" % statement["description"])
+            ostream.write(f' = {statement["description"]}')
         ostream.writeln("")
     elif statement["type"] == "range":
         # `range` is a weird node, its almost a hybrid of statement+feature.
@@ -64,11 +64,11 @@ def render_statement(ostream, match, statement, indent=0):
                 value = child[child["type"]]
             value = rutils.bold2(value)
             if child.get("description"):
-                ostream.write("count(%s(%s = %s)): " % (child["type"], value, child["description"]))
+                ostream.write(f'count({child["type"]}({value} = {child["description"]})): ')
             else:
-                ostream.write("count(%s(%s)): " % (child["type"], value))
+                ostream.write(f'count({child["type"]}({value})): ')
         else:
-            ostream.write("count(%s): " % child["type"])
+            ostream.write(f'count({child["type"]}): ')
 
         if statement["max"] == statement["min"]:
             ostream.write("%d" % (statement["min"]))
@@ -80,11 +80,11 @@ def render_statement(ostream, match, statement, indent=0):
             ostream.write("between %d and %d" % (statement["min"], statement["max"]))
 
         if statement.get("description"):
-            ostream.write(" = %s" % statement["description"])
+            ostream.write(f' = {statement["description"]}')
         render_locations(ostream, match)
         ostream.writeln("")
     else:
-        raise RuntimeError("unexpected match statement type: " + str(statement))
+        raise RuntimeError(f"unexpected match statement type: {str(statement)}")
 
 
 def render_string_value(s):
@@ -140,7 +140,7 @@ def render_node(ostream, match, node, indent=0):
     elif node["type"] == "feature":
         render_feature(ostream, match, node["feature"], indent=indent)
     else:
-        raise RuntimeError("unexpected node type: " + str(node))
+        raise RuntimeError(f"unexpected node type: {str(node)}")
 
 
 # display nodes that successfully evaluated against the sample.
@@ -178,7 +178,7 @@ def render_match(ostream, match, indent=0, mode=MODE_SUCCESS):
         if match["node"].get("statement", {}).get("type") == "not":
             child_mode = MODE_SUCCESS
     else:
-        raise RuntimeError("unexpected mode: " + mode)
+        raise RuntimeError(f"unexpected mode: {mode}")
 
     render_node(ostream, match, match["node"], indent=indent)
 

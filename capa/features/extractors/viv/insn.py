@@ -66,12 +66,11 @@ def get_imports(vw):
     """
     if "imports" in vw.metadata:
         return vw.metadata["imports"]
-    else:
-        imports = {
-            p[0]: (p[3].rpartition(".")[0], p[3].replace(".ord", ".#").rpartition(".")[2]) for p in vw.getImports()
-        }
-        vw.metadata["imports"] = imports
-        return imports
+    imports = {
+        p[0]: (p[3].rpartition(".")[0], p[3].replace(".ord", ".#").rpartition(".")[2]) for p in vw.getImports()
+    }
+    vw.metadata["imports"] = imports
+    return imports
 
 
 def extract_insn_api_features(f, bb, insn):
@@ -83,9 +82,8 @@ def extract_insn_api_features(f, bb, insn):
     if insn.mnem not in ("call", "jmp"):
         return
 
-    if insn.mnem == "jmp":
-        if f.vw.getFunctionMeta(f.va, "Thunk"):
-            return
+    if insn.mnem == "jmp" and f.vw.getFunctionMeta(f.va, "Thunk"):
+        return
 
     # traditional call via IAT
     if isinstance(insn.opers[0], envi.archs.i386.disasm.i386ImmMemOper):
@@ -321,14 +319,7 @@ def read_string(vw, offset: int) -> str:
         pass
     else:
         if ulen > 0:
-            if ulen % 2 == 1:
-                # vivisect seems to mis-detect the end unicode strings
-                # off by one, too short
-                ulen += 1
-            else:
-                # vivisect seems to mis-detect the end unicode strings
-                # off by two, too short
-                ulen += 2
+            ulen += 1 if ulen % 2 == 1 else 2
             return read_memory(vw, offset, ulen).decode("utf-16")
 
     raise ValueError("not a string", offset)
@@ -485,8 +476,6 @@ def extract_insn_peb_access_characteristic_features(f, bb, insn):
                 or (isinstance(oper, envi.archs.amd64.disasm.i386ImmMemOper) and oper.imm == 0x60)
             ):
                 yield Characteristic("peb access"), insn.va
-    else:
-        pass
 
 
 def extract_insn_segment_access_features(f, bb, insn):
@@ -614,8 +603,7 @@ def extract_features(f, bb, insn):
       Tuple[Feature, int]: the features and their location found in this insn.
     """
     for insn_handler in INSTRUCTION_HANDLERS:
-        for feature, va in insn_handler(f, bb, insn):
-            yield feature, va
+        yield from insn_handler(f, bb, insn)
 
 
 INSTRUCTION_HANDLERS = (

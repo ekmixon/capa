@@ -110,7 +110,7 @@ class FilenameDoesntMatchRuleName(Lint):
         expected = expected.replace("+", "")
         expected = expected.replace("/", "")
         expected = expected.replace(".", "")
-        expected = expected + ".yml"
+        expected = f"{expected}.yml"
 
         found = os.path.basename(rule.meta["capa/path"])
 
@@ -368,10 +368,7 @@ class LibRuleHasNamespace(Lint):
     recommendation = "Remove the namespace from the rule"
 
     def check_rule(self, ctx: Context, rule: Rule):
-        if "lib" not in rule.meta:
-            return False
-
-        return "namespace" in rule.meta
+        return False if "lib" not in rule.meta else "namespace" in rule.meta
 
 
 class FeatureStringTooShort(Lint):
@@ -451,7 +448,7 @@ class FeatureNtdllNtoskrnlApi(Lint):
                         # ntoskrnl.exe does not export these routines
                         continue
 
-                if modname == "ntoskrnl":
+                elif modname == "ntoskrnl":
                     if impname in (
                         "PsGetVersion",
                         "PsLookupProcessByProcessId",
@@ -473,9 +470,7 @@ class FormatLineFeedEOL(Lint):
     recommendation = "convert line endings to LF (\\n) for example using dos2unix"
 
     def check_rule(self, ctx: Context, rule: Rule):
-        if len(rule.definition.split("\r\n")) > 0:
-            return False
-        return True
+        return len(rule.definition.split("\r\n")) <= 0
 
 
 class FormatSingleEmptyLineEOF(Lint):
@@ -483,9 +478,9 @@ class FormatSingleEmptyLineEOF(Lint):
     recommendation = "end file with a single empty line"
 
     def check_rule(self, ctx: Context, rule: Rule):
-        if rule.definition.endswith("\n") and not rule.definition.endswith("\n\n"):
-            return False
-        return True
+        return bool(
+            not rule.definition.endswith("\n") or rule.definition.endswith("\n\n")
+        )
 
 
 class FormatIncorrect(Lint):
@@ -683,35 +678,26 @@ def lint_rule(ctx: Context, rule: Rule):
         )
     )
 
-    if len(violations) > 0:
-        # don't show nursery rules with a single violation: needs examples.
-        # this is by far the most common reason to be in the nursery,
-        # and ends up just producing a lot of noise.
-        if not (is_nursery_rule(rule) and len(violations) == 1 and violations[0].name == "missing examples"):
-            category = rule.meta.get("rule-category")
+    if violations and (
+        not is_nursery_rule(rule)
+        or len(violations) != 1
+        or violations[0].name != "missing examples"
+    ):
+        category = rule.meta.get("rule-category")
 
-            print("")
+        print("")
+        print(
+            f'{"    (nursery) " if is_nursery_rule(rule) else ""}{rule.name} {f"({category})" if category else ""}'
+        )
+
+
+        for violation in violations:
             print(
-                "%s%s %s"
-                % (
-                    "    (nursery) " if is_nursery_rule(rule) else "",
-                    rule.name,
-                    ("(%s)" % category) if category else "",
-                )
+                f'{"    " if is_nursery_rule(rule) else ""}  {Lint.WARN if is_nursery_rule(rule) else violation.level}: {violation.name}: {violation.recommendation}'
             )
 
-            for violation in violations:
-                print(
-                    "%s  %s: %s: %s"
-                    % (
-                        "    " if is_nursery_rule(rule) else "",
-                        Lint.WARN if is_nursery_rule(rule) else violation.level,
-                        violation.name,
-                        violation.recommendation,
-                    )
-                )
 
-            print("")
+        print("")
 
     if is_nursery_rule(rule):
         has_examples = not any(map(lambda v: v.level == Lint.FAIL and v.name == "missing examples", violations))
@@ -719,11 +705,16 @@ def lint_rule(ctx: Context, rule: Rule):
             tuple(
                 filter(
                     lambda v: v.level == Lint.FAIL
-                    and not (v.name == "missing examples" or v.name == "referenced example doesn't exist"),
+                    and v.name
+                    not in [
+                        "missing examples",
+                        "referenced example doesn't exist",
+                    ],
                     violations,
                 )
             )
         )
+
         lints_warned = len(
             tuple(
                 filter(
@@ -736,8 +727,8 @@ def lint_rule(ctx: Context, rule: Rule):
 
         if (not lints_failed) and (not lints_warned) and has_examples:
             print("")
-            print("%s%s" % ("    (nursery) ", rule.name))
-            print("%s  %s: %s: %s" % ("    ", Lint.WARN, green("no lint failures"), "Graduate the rule"))
+            print(f"    (nursery) {rule.name}")
+            print(f'      {Lint.WARN}: {green("no lint failures")}: Graduate the rule')
             print("")
     else:
         lints_failed = len(tuple(filter(lambda v: v.level == Lint.FAIL, violations)))
@@ -747,10 +738,7 @@ def lint_rule(ctx: Context, rule: Rule):
 
 
 def width(s, count):
-    if len(s) > count:
-        return s[: count - 3] + "..."
-    else:
-        return s.ljust(count)
+    return f"{s[: count - 3]}..." if len(s) > count else s.ljust(count)
 
 
 @contextlib.contextmanager
@@ -795,7 +783,7 @@ def lint(ctx: Context):
                 if rule.meta.get("capa/subscope-rule", False):
                     continue
 
-                pbar.set_description(width("linting rule: %s" % (name), 48))
+                pbar.set_description(width(f"linting rule: {name}", 48))
                 ret[name] = lint_rule(ctx, rule)
 
     return ret
@@ -907,13 +895,13 @@ def main(argv=None):
     if warned_rules:
         print(orange("rules with WARN:"))
         for warned_rule in sorted(warned_rules):
-            print("  - " + warned_rule)
+            print(f"  - {warned_rule}")
         print()
 
     if failed_rules:
         print(red("rules with FAIL:"))
         for failed_rule in sorted(failed_rules):
-            print("  - " + failed_rule)
+            print(f"  - {failed_rule}")
         return 1
     else:
         logger.info(green("no lints failed, nice!"))

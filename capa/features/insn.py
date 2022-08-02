@@ -15,7 +15,7 @@ class API(Feature):
         # Downcase library name if given
         if "." in name:
             modname, _, impname = name.rpartition(".")
-            name = modname.lower() + "." + impname
+            name = f"{modname.lower()}.{impname}"
 
         super(API, self).__init__(name, description=description)
 

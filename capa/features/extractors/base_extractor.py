@@ -259,8 +259,7 @@ class NullFeatureExtractor(FeatureExtractor):
             yield feature, va
 
     def get_functions(self):
-        for va in sorted(self.features["functions"].keys()):
-            yield va
+        yield from sorted(self.features["functions"].keys())
 
     def extract_function_features(self, f):
         for p in self.features.get("functions", {}).get(f, {}).get("features", []):  # noqa: E127 line over-indented

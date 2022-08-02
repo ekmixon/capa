@@ -118,9 +118,8 @@ def find_file_capabilities(ruleset: RuleSet, extractor: FeatureExtractor, functi
         # the set of addresses will still be empty.
         if va:
             file_features[feature].add(va)
-        else:
-            if feature not in file_features:
-                file_features[feature] = set()
+        elif feature not in file_features:
+            file_features[feature] = set()
 
     logger.debug("analyzed file and extracted %d features", len(file_features))
 
@@ -159,9 +158,9 @@ def find_capabilities(ruleset: RuleSet, extractor: FeatureExtractor, disable_pro
             function_name = extractor.get_function_name(function_address)
             logger.debug("skipping library function 0x%x (%s)", function_address, function_name)
             meta["library_functions"][function_address] = function_name
-            n_libs = len(meta["library_functions"])
-            percentage = 100 * (n_libs / n_funcs)
             if isinstance(pb, tqdm.tqdm):
+                n_libs = len(meta["library_functions"])
+                percentage = 100 * (n_libs / n_funcs)
                 pb.set_postfix_str("skipped %d library functions (%d%%)" % (n_libs, percentage))
             continue
 
@@ -185,9 +184,8 @@ def find_capabilities(ruleset: RuleSet, extractor: FeatureExtractor, disable_pro
     all_file_matches, feature_count = find_file_capabilities(ruleset, extractor, function_and_lower_features)
     meta["feature_counts"]["file"] = feature_count
 
-    matches = {
-        rule_name: results
-        for rule_name, results in itertools.chain(
+    matches = dict(
+        itertools.chain(
             # each rule exists in exactly one scope,
             # so there won't be any overlap among these following MatchResults,
             # and we can merge the dictionaries naively.
@@ -195,16 +193,17 @@ def find_capabilities(ruleset: RuleSet, extractor: FeatureExtractor, disable_pro
             all_function_matches.items(),
             all_file_matches.items(),
         )
-    }
+    )
+
 
     return matches, meta
 
 
 def has_rule_with_namespace(rules, capabilities, rule_cat):
-    for rule_name in capabilities.keys():
-        if rules.rules[rule_name].meta.get("namespace", "").startswith(rule_cat):
-            return True
-    return False
+    return any(
+        rules.rules[rule_name].meta.get("namespace", "").startswith(rule_cat)
+        for rule_name in capabilities.keys()
+    )
 
 
 def is_internal_rule(rule: Rule) -> bool:
@@ -224,7 +223,7 @@ def has_file_limitation(rules: RuleSet, capabilities: MatchResults, is_standalon
 
         logger.warning("-" * 80)
         for line in file_limitation_rule.meta.get("description", "").split("\n"):
-            logger.warning(" " + line)
+            logger.warning(f" {line}")
         logger.warning(" Identified via rule: %s", file_limitation_rule.name)
         if is_standalone:
             logger.warning(" ")
@@ -309,21 +308,23 @@ def get_shellcode_vw(sample, arch="auto"):
         sample_bytes = f.read()
 
     if arch == "auto":
-        # choose arch with most functions, idea by Jay G.
-        vw_cands = []
-        for arch in ["i386", "amd64"]:
-            vw_cands.append(
-                viv_utils.getShellcodeWorkspace(
-                    sample_bytes, arch, base=SHELLCODE_BASE, analyze=False, should_save=False
-                )
+        if vw_cands := [
+            viv_utils.getShellcodeWorkspace(
+                sample_bytes,
+                arch,
+                base=SHELLCODE_BASE,
+                analyze=False,
+                should_save=False,
             )
-        if not vw_cands:
+            for arch in ["i386", "amd64"]
+        ]:
+            vw = max(vw_cands, key=lambda vw: len(vw.getFunctions()))
+        else:
             raise ValueError("could not generate vivisect workspace")
-        vw = max(vw_cands, key=lambda vw: len(vw.getFunctions()))
     else:
         vw = viv_utils.getShellcodeWorkspace(sample_bytes, arch, base=SHELLCODE_BASE, analyze=False, should_save=False)
 
-    vw.setMeta("StorageName", "%s.viv" % sample)
+    vw.setMeta("StorageName", f"{sample}.viv")
 
     return vw
 
@@ -332,10 +333,12 @@ def get_meta_str(vw):
     """
     Return workspace meta information string
     """
-    meta = []
-    for k in ["Format", "Platform", "Architecture"]:
-        if k in vw.metadata:
-            meta.append("%s: %s" % (k.lower(), vw.metadata[k]))
+    meta = [
+        f"{k.lower()}: {vw.metadata[k]}"
+        for k in ["Format", "Platform", "Architecture"]
+        if k in vw.metadata
+    ]
+
     return "%s, number of functions: %d" % (", ".join(meta), len(vw.getFunctions()))
 
 
@@ -345,21 +348,21 @@ def load_flirt_signature(path):
 
     if path.endswith(".sig"):
         with open(path, "rb") as f:
-            with timing("flirt: parsing .sig: " + path):
+            with timing(f"flirt: parsing .sig: {path}"):
                 sigs = flirt.parse_sig(f.read())
 
     elif path.endswith(".pat"):
         with open(path, "rb") as f:
-            with timing("flirt: parsing .pat: " + path):
+            with timing(f"flirt: parsing .pat: {path}"):
                 sigs = flirt.parse_pat(f.read().decode("utf-8").replace("\r\n", "\n"))
 
     elif path.endswith(".pat.gz"):
         with gzip.open(path, "rb") as f:
-            with timing("flirt: parsing .pat.gz: " + path):
+            with timing(f"flirt: parsing .pat.gz: {path}"):
                 sigs = flirt.parse_pat(f.read().decode("utf-8").replace("\r\n", "\n"))
 
     else:
-        raise ValueError("unexpect signature file extension: " + path)
+        raise ValueError(f"unexpect signature file extension: {path}")
 
     return sigs
 
@@ -423,11 +426,13 @@ def get_default_signatures() -> List[str]:
 
     ret = []
     for root, dirs, files in os.walk(sigs_path):
-        for file in files:
-            if not (file.endswith(".pat") or file.endswith(".pat.gz") or file.endswith(".sig")):
-                continue
-
-            ret.append(os.path.join(root, file))
+        ret.extend(
+            os.path.join(root, file)
+            for file in files
+            if file.endswith(".pat")
+            or file.endswith(".pat.gz")
+            or file.endswith(".sig")
+        )
 
     return ret
 
@@ -477,7 +482,7 @@ def get_workspace(path, format, sigpaths):
     elif format == "sc64":
         vw = get_shellcode_vw(path, arch="amd64")
     else:
-        raise ValueError("unexpected format: " + format)
+        raise ValueError(f"unexpected format: {format}")
 
     register_flirt_signature_analyzers(vw, sigpaths)
 
@@ -558,7 +563,7 @@ def is_nursery_rule_path(path: str) -> bool:
 
 def get_rules(rule_path: str, disable_progress=False) -> List[Rule]:
     if not os.path.exists(rule_path):
-        raise IOError("rule path %s does not exist or cannot be accessed" % rule_path)
+        raise IOError(f"rule path {rule_path} does not exist or cannot be accessed")
 
     rule_paths = []
     if os.path.isfile(rule_path):
@@ -609,7 +614,10 @@ def get_rules(rule_path: str, disable_progress=False) -> List[Rule]:
 
 def get_signatures(sigs_path):
     if not os.path.exists(sigs_path):
-        raise IOError("signatures path %s does not exist or cannot be accessed" % sigs_path)
+        raise IOError(
+            f"signatures path {sigs_path} does not exist or cannot be accessed"
+        )
+
 
     paths = []
     if os.path.isfile(sigs_path):
@@ -742,14 +750,15 @@ def install_common_args(parser, wanted=None):
             ("sc64", "64-bit shellcode"),
             ("freeze", "features previously frozen by capa"),
         ]
-        format_help = ", ".join(["%s: %s" % (f[0], f[1]) for f in formats])
+        format_help = ", ".join([f"{f[0]}: {f[1]}" for f in formats])
         parser.add_argument(
             "-f",
             "--format",
             choices=[f[0] for f in formats],
             default="auto",
-            help="select sample format, %s" % format_help,
+            help=f"select sample format, {format_help}",
         )
+
 
         if "backend" in wanted:
             parser.add_argument(
@@ -825,7 +834,7 @@ def handle_common_args(args):
     elif args.color == "never":
         colorama.init(strip=True)
     else:
-        raise RuntimeError("unexpected --color value: " + args.color)
+        raise RuntimeError(f"unexpected --color value: {args.color}")
 
     if hasattr(args, "rules"):
         if args.rules == RULES_PATH_DEFAULT_STRING:
@@ -926,11 +935,16 @@ def main(argv=None):
         rules = capa.rules.RuleSet(rules)
         logger.debug(
             "successfully loaded %s rules",
-            # during the load of the RuleSet, we extract subscope statements into their own rules
-            # that are subsequently `match`ed upon. this inflates the total rule count.
-            # so, filter out the subscope rules when reporting total number of loaded rules.
-            len([i for i in filter(lambda r: "capa/subscope-rule" not in r.meta, rules.rules.values())]),
+            len(
+                list(
+                    filter(
+                        lambda r: "capa/subscope-rule" not in r.meta,
+                        rules.rules.values(),
+                    )
+                )
+            ),
         )
+
         if args.tag:
             rules = rules.filter_rules_by_meta(args.tag)
             logger.debug("selected %d rules", len(rules))
@@ -957,12 +971,14 @@ def main(argv=None):
 
         # file limitations that rely on non-file scope won't be detected here.
         # nor on FunctionName features, because pefile doesn't support this.
-        if has_file_limitation(rules, pure_file_capabilities):
-            # bail if capa encountered file limitation e.g. a packed binary
-            # do show the output in verbose mode, though.
-            if not (args.verbose or args.vverbose or args.json):
-                logger.debug("file limitation short circuit, won't analyze fully.")
-                return -1
+        if (
+            has_file_limitation(rules, pure_file_capabilities)
+            and not args.verbose
+            and not args.vverbose
+            and not args.json
+        ):
+            logger.debug("file limitation short circuit, won't analyze fully.")
+            return -1
 
     try:
         sig_paths = get_signatures(args.signatures)
@@ -976,10 +992,11 @@ def main(argv=None):
             extractor = capa.features.freeze.load(f.read())
     else:
         format = args.format
-        if format == "auto" and args.sample.endswith(EXTENSIONS_SHELLCODE_32):
-            format = "sc32"
-        elif format == "auto" and args.sample.endswith(EXTENSIONS_SHELLCODE_64):
-            format = "sc64"
+        if format == "auto":
+            if args.sample.endswith(EXTENSIONS_SHELLCODE_32):
+                format = "sc32"
+            elif args.sample.endswith(EXTENSIONS_SHELLCODE_64):
+                format = "sc64"
 
         should_save_workspace = os.environ.get("CAPA_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
 
@@ -1019,11 +1036,13 @@ def main(argv=None):
     capabilities, counts = find_capabilities(rules, extractor, disable_progress=args.quiet)
     meta["analysis"].update(counts)
 
-    if has_file_limitation(rules, capabilities):
-        # bail if capa encountered file limitation e.g. a packed binary
-        # do show the output in verbose mode, though.
-        if not (args.verbose or args.vverbose or args.json):
-            return -1
+    if (
+        has_file_limitation(rules, capabilities)
+        and not args.verbose
+        and not args.vverbose
+        and not args.json
+    ):
+        return -1
 
     if args.json:
         print(capa.render.json.render(meta, rules, capabilities))

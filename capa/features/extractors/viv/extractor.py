@@ -52,8 +52,10 @@ class VivisectFeatureExtractor(FeatureExtractor):
         return list(self.vw.filemeta.values())[0]["imagebase"]
 
     def extract_file_features(self):
-        for feature, va in capa.features.extractors.viv.file.extract_features(self.vw, self.buf):
-            yield feature, va
+        yield from capa.features.extractors.viv.file.extract_features(
+            self.vw, self.buf
+        )
+
         yield from self.global_features
 
     def get_functions(self):
@@ -61,16 +63,14 @@ class VivisectFeatureExtractor(FeatureExtractor):
             yield viv_utils.Function(self.vw, va)
 
     def extract_function_features(self, f):
-        for feature, va in capa.features.extractors.viv.function.extract_features(f):
-            yield feature, va
+        yield from capa.features.extractors.viv.function.extract_features(f)
         yield from self.global_features
 
     def get_basic_blocks(self, f):
         return f.basic_blocks
 
     def extract_basic_block_features(self, f, bb):
-        for feature, va in capa.features.extractors.viv.basicblock.extract_features(f, bb):
-            yield feature, va
+        yield from capa.features.extractors.viv.basicblock.extract_features(f, bb)
         yield from self.global_features
 
     def get_instructions(self, f, bb):
@@ -78,8 +78,7 @@ class VivisectFeatureExtractor(FeatureExtractor):
             yield InstructionHandle(insn)
 
     def extract_insn_features(self, f, bb, insn):
-        for feature, va in capa.features.extractors.viv.insn.extract_features(f, bb, insn):
-            yield feature, va
+        yield from capa.features.extractors.viv.insn.extract_features(f, bb, insn)
         yield from self.global_features
 
     def is_library_function(self, va):

@@ -150,7 +150,7 @@ def convert_match_to_result_document(rules, capabilities, result):
             # pull matches from the referenced rule into our tree here.
             rule_name = doc["node"]["feature"]["match"]
             rule = rules[rule_name]
-            rule_matches = {address: result for (address, result) in capabilities[rule_name]}
+            rule_matches = dict(capabilities[rule_name])
 
             if rule.meta.get("capa/subscope-rule"):
                 # for a subscope rule, fixup the node to be a scope node, rather than a match feature node.
@@ -196,7 +196,7 @@ def convert_match_to_result_document(rules, capabilities, result):
                     # we could introduce an intermediate node here.
                     # this would be a breaking change and require updates to the renderers.
                     # in the meantime, the above might be sufficient.
-                    rule_matches = {address: result for (address, result) in capabilities[rule.name]}
+                    rule_matches = dict(capabilities[rule.name])
                     for location in doc["locations"]:
                         # doc[locations] contains all matches for the given namespace.
                         # for example, the feature might be `match: anti-analysis/packer`
@@ -230,17 +230,10 @@ def parse_canonical_attack(attack: str):
     """
     parse capa's canonical ATT&CK representation: `Tactic::Technique::Subtechnique [Identifier]`
     """
-    tactic = ""
-    technique = ""
-    subtechnique = ""
     parts, id = capa.render.utils.parse_parts_id(attack)
-    if len(parts) > 0:
-        tactic = parts[0]
-    if len(parts) > 1:
-        technique = parts[1]
-    if len(parts) > 2:
-        subtechnique = parts[2]
-
+    tactic = parts[0] if len(parts) > 0 else ""
+    technique = parts[1] if len(parts) > 1 else ""
+    subtechnique = parts[2] if len(parts) > 2 else ""
     return {
         "parts": parts,
         "id": id,
@@ -254,17 +247,10 @@ def parse_canonical_mbc(mbc: str):
     """
     parse capa's canonical MBC representation: `Objective::Behavior::Method [Identifier]`
     """
-    objective = ""
-    behavior = ""
-    method = ""
     parts, id = capa.render.utils.parse_parts_id(mbc)
-    if len(parts) > 0:
-        objective = parts[0]
-    if len(parts) > 1:
-        behavior = parts[1]
-    if len(parts) > 2:
-        method = parts[2]
-
+    objective = parts[0] if len(parts) > 0 else ""
+    behavior = parts[1] if len(parts) > 1 else ""
+    method = parts[2] if len(parts) > 2 else ""
     return {
         "parts": parts,
         "id": id,

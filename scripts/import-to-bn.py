@@ -48,16 +48,16 @@ def load_analysis(bv):
     shortname = os.path.splitext(os.path.basename(bv.file.filename))[0]
     dirname = os.path.dirname(bv.file.filename)
     binaryninja.log_info(f"dirname: {dirname}\nshortname: {shortname}\n")
-    if os.access(os.path.join(dirname, shortname + ".js"), os.R_OK):
-        path = os.path.join(dirname, shortname + ".js")
-    elif os.access(os.path.join(dirname, shortname + ".json"), os.R_OK):
-        path = os.path.join(dirname, shortname + ".json")
+    if os.access(os.path.join(dirname, f"{shortname}.js"), os.R_OK):
+        path = os.path.join(dirname, f"{shortname}.js")
+    elif os.access(os.path.join(dirname, f"{shortname}.json"), os.R_OK):
+        path = os.path.join(dirname, f"{shortname}.json")
     else:
         path = binaryninja.interaction.get_open_filename_input("capa report:", "JSON (*.js *.json);;All Files (*)")
     if not path or not os.access(path, os.R_OK):
         binaryninja.log_error("Invalid filename.")
         return 0
-    binaryninja.log_info("Using capa file %s" % path)
+    binaryninja.log_info(f"Using capa file {path}")
 
     with open(path, "rb") as f:
         doc = json.loads(f.read().decode("utf-8"))
@@ -70,7 +70,7 @@ def load_analysis(bv):
     md5 = binaryninja.Transform["MD5"]
     rawhex = binaryninja.Transform["RawHex"]
     b = rawhex.encode(md5.encode(bv.parent_view.read(bv.parent_view.start, bv.parent_view.end))).decode("utf-8")
-    if not a == b:
+    if a != b:
         binaryninja.log_error("sample mismatch")
         return -2
 
@@ -92,17 +92,13 @@ def load_analysis(bv):
     # order by (namespace, name) so that like things show up together
     rows = sorted(rows)
     for ns, name, va in rows:
-        if ns:
-            cmt = "%s (%s)" % (name, ns)
-        else:
-            cmt = "%s" % (name,)
-
+        cmt = f"{name} ({ns})" if ns else f"{name}"
         binaryninja.log_info("0x%x: %s" % (va, cmt))
         try:
             # message will look something like:
             #
             #     capa: delete service (host-interaction/service/delete)
-            append_func_cmt(bv, va, "capa: " + cmt)
+            append_func_cmt(bv, va, f"capa: {cmt}")
         except ValueError:
             continue
 

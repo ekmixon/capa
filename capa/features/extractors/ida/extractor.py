@@ -67,8 +67,7 @@ class IdaFeatureExtractor(FeatureExtractor):
         return idaapi.get_imagebase()
 
     def extract_file_features(self):
-        for (feature, ea) in capa.features.extractors.ida.file.extract_features():
-            yield feature, ea
+        yield from capa.features.extractors.ida.file.extract_features()
         yield from self.global_features
 
     def get_functions(self):
@@ -90,8 +89,7 @@ class IdaFeatureExtractor(FeatureExtractor):
         return FunctionHandle(f)
 
     def extract_function_features(self, f):
-        for (feature, ea) in capa.features.extractors.ida.function.extract_features(f):
-            yield feature, ea
+        yield from capa.features.extractors.ida.function.extract_features(f)
         yield from self.global_features
 
     def get_basic_blocks(self, f):
@@ -101,8 +99,7 @@ class IdaFeatureExtractor(FeatureExtractor):
             yield BasicBlockHandle(bb)
 
     def extract_basic_block_features(self, f, bb):
-        for (feature, ea) in capa.features.extractors.ida.basicblock.extract_features(f, bb):
-            yield feature, ea
+        yield from capa.features.extractors.ida.basicblock.extract_features(f, bb)
         yield from self.global_features
 
     def get_instructions(self, f, bb):
@@ -112,6 +109,5 @@ class IdaFeatureExtractor(FeatureExtractor):
             yield InstructionHandle(insn)
 
     def extract_insn_features(self, f, bb, insn):
-        for (feature, ea) in capa.features.extractors.ida.insn.extract_features(f, bb, insn):
-            yield feature, ea
+        yield from capa.features.extractors.ida.insn.extract_features(f, bb, insn)
         yield from self.global_features

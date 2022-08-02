@@ -38,9 +38,10 @@ class Statement:
 
     def __str__(self):
         if self.description:
-            return "%s(%s = %s)" % (self.name.lower(), ",".join(map(str, self.get_children())), self.description)
+            return f'{self.name.lower()}({",".join(map(str, self.get_children()))} = {self.description})'
+
         else:
-            return "%s(%s)" % (self.name.lower(), ",".join(map(str, self.get_children())))
+            return f'{self.name.lower()}({",".join(map(str, self.get_children()))})'
 
     def __repr__(self):
         return str(self)
@@ -62,13 +63,11 @@ class Statement:
             yield self.child
 
         if hasattr(self, "children"):
-            for child in getattr(self, "children"):
-                yield child
+            yield from getattr(self, "children")
 
     def replace_child(self, existing, new):
-        if hasattr(self, "child"):
-            if self.child is existing:
-                self.child = new
+        if hasattr(self, "child") and self.child is existing:
+            self.child = new
 
         if hasattr(self, "children"):
             children = getattr(self, "children")
@@ -106,9 +105,7 @@ class Result:
         self.locations = locations if locations is not None else ()
 
     def __eq__(self, other):
-        if isinstance(other, bool):
-            return self.success == other
-        return False
+        return self.success == other if isinstance(other, bool) else False
 
     def __bool__(self):
         return self.success
@@ -170,7 +167,7 @@ class Some(Statement):
         # because we've overridden `__bool__` above.
         #
         # we can't use `if child is True` because the instance is not True.
-        success = sum([1 for child in results if bool(child) is True]) >= self.count
+        success = sum(bool(child) for child in results) >= self.count
         return Result(success, self, results)
 
 
@@ -238,8 +235,7 @@ def index_rule_matches(features: FeatureSet, rule: "capa.rules.Rule", locations:
     updates `features` in-place. doesn't modify the remaining arguments.
     """
     features[capa.features.common.MatchedRule(rule.name)].update(locations)
-    namespace = rule.meta.get("namespace")
-    if namespace:
+    if namespace := rule.meta.get("namespace"):
         while namespace:
             features[capa.features.common.MatchedRule(namespace)].update(locations)
             namespace, _, _ = namespace.rpartition("/")
@@ -266,8 +262,7 @@ def match(rules: List["capa.rules.Rule"], features: FeatureSet, va: int) -> Tupl
     features = collections.defaultdict(set, copy.copy(features))
 
     for rule in rules:
-        res = rule.evaluate(features)
-        if res:
+        if res := rule.evaluate(features):
             results[rule.name].append((va, res))
             # we need to update the current `features`
             # because subsequent iterations of this loop may use newly added features,

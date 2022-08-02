@@ -13,9 +13,7 @@ def extract_function_loop(f):
     """
     edges = []
     for bb_from, bb_tos in f.blockrefs.items():
-        for bb_to in bb_tos:
-            edges.append((bb_from, bb_to))
-
+        edges.extend((bb_from, bb_to) for bb_to in bb_tos)
     if edges and loops.has_loop(edges):
         yield Characteristic("loop"), f.offset
 
@@ -31,8 +29,7 @@ def extract_features(f):
       Tuple[Feature, int]: the features and their location found in this function.
     """
     for func_handler in FUNCTION_HANDLERS:
-        for feature, va in func_handler(f):
-            yield feature, va
+        yield from func_handler(f)
 
 
 FUNCTION_HANDLERS = (extract_function_calls_to, extract_function_loop)

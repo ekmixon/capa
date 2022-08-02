@@ -16,7 +16,7 @@ class CapaJsonObjectEncoder(json.JSONEncoder):
     """JSON encoder that emits Python sets as sorted lists"""
 
     def default(self, obj):
-        if isinstance(obj, (list, dict, int, float, bool, type(None))) or isinstance(obj, str):
+        if isinstance(obj, (list, dict, int, float, bool, type(None), str)):
             return json.JSONEncoder.default(self, obj)
         elif isinstance(obj, set):
             return list(sorted(obj))

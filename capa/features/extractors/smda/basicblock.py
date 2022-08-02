@@ -61,10 +61,7 @@ def is_mov_imm_to_stack(smda_ins):
     except ValueError:
         return False
 
-    if not any(regname in dst for regname in ["ebp", "rbp", "esp", "rsp"]):
-        return False
-
-    return True
+    return any((regname in dst for regname in ["ebp", "rbp", "esp", "rsp"]))
 
 
 def is_printable_ascii(chars):
@@ -101,10 +98,7 @@ def get_printable_len(instr):
 
     if is_printable_ascii(chars):
         return instr.imm_size
-    if is_printable_utf16le(chars):
-        return instr.imm_size // 2
-
-    return 0
+    return instr.imm_size // 2 if is_printable_utf16le(chars) else 0
 
 
 def extract_features(f, bb):
@@ -120,8 +114,7 @@ def extract_features(f, bb):
     """
     yield BasicBlock(), bb.offset
     for bb_handler in BASIC_BLOCK_HANDLERS:
-        for feature, va in bb_handler(f, bb):
-            yield feature, va
+        yield from bb_handler(f, bb)
 
 
 BASIC_BLOCK_HANDLERS = (

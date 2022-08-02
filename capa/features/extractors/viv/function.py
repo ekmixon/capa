@@ -39,15 +39,16 @@ def extract_function_loop(f):
 
     for bb in f.basic_blocks:
         if len(bb.instructions) > 0:
-            for bva, bflags in bb.instructions[-1].getBranches():
-                # vivisect does not set branch flags for non-conditional jmp so add explicit check
+            edges.extend(
+                (bb.va, bva)
+                for bva, bflags in bb.instructions[-1].getBranches()
                 if (
                     bflags & envi.BR_COND
                     or bflags & envi.BR_FALL
                     or bflags & envi.BR_TABLE
                     or bb.instructions[-1].mnem == "jmp"
-                ):
-                    edges.append((bb.va, bva))
+                )
+            )
 
     if edges and loops.has_loop(edges):
         yield Characteristic("loop"), f.va
@@ -64,8 +65,7 @@ def extract_features(f):
       Tuple[Feature, int]: the features and their location found in this function.
     """
     for func_handler in FUNCTION_HANDLERS:
-        for feature, va in func_handler(f):
-            yield feature, va
+        yield from func_handler(f)
 
 
 FUNCTION_HANDLERS = (extract_function_calls_to, extract_function_loop)

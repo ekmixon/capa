@@ -42,7 +42,7 @@ def extract_file_import_names(vw, **kwargs):
         modname, impname = tinfo.split(".", 1)
         if is_viv_ord_impname(impname):
             # replace ord prefix with #
-            impname = "#%s" % impname[len("ord") :]
+            impname = f'#{impname[len("ord") :]}'
 
         for name in capa.features.extractors.helpers.generate_symbols(modname, impname):
             yield Import(name), va
@@ -105,8 +105,7 @@ def extract_features(vw, buf: bytes):
     """
 
     for file_handler in FILE_HANDLERS:
-        for feature, va in file_handler(vw=vw, buf=buf):  # type: ignore
-            yield feature, va
+        yield from file_handler(vw=vw, buf=buf)
 
 
 FILE_HANDLERS = (

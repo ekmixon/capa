@@ -41,8 +41,12 @@ def check_segment_for_pe(seg):
 
     todo = []
     for (mzx, pex, i) in mz_xor:
-        for off in capa.features.extractors.ida.helpers.find_byte_sequence(seg.start_ea, seg.end_ea, mzx):
-            todo.append((off, mzx, pex, i))
+        todo.extend(
+            (off, mzx, pex, i)
+            for off in capa.features.extractors.ida.helpers.find_byte_sequence(
+                seg.start_ea, seg.end_ea, mzx
+            )
+        )
 
     while len(todo):
         off, mzx, pex, i = todo.pop()
@@ -62,8 +66,12 @@ def check_segment_for_pe(seg):
         if idc.get_bytes(peoff, 2) == pex:
             yield (off, i)
 
-        for nextres in capa.features.extractors.ida.helpers.find_byte_sequence(off + 1, seg.end_ea, mzx):
-            todo.append((nextres, mzx, pex, i))
+        todo.extend(
+            (nextres, mzx, pex, i)
+            for nextres in capa.features.extractors.ida.helpers.find_byte_sequence(
+                off + 1, seg.end_ea, mzx
+            )
+        )
 
 
 def extract_file_embedded_pe():
@@ -159,9 +167,7 @@ def extract_file_format():
 
     if "PE" in format_name:
         yield Format(FORMAT_PE), 0x0
-    elif "ELF64" in format_name:
-        yield Format(FORMAT_ELF), 0x0
-    elif "ELF32" in format_name:
+    elif "ELF64" in format_name or "ELF32" in format_name:
         yield Format(FORMAT_ELF), 0x0
     else:
         raise NotImplementedError("file format: %s", format_name)
@@ -170,8 +176,7 @@ def extract_file_format():
 def extract_features():
     """extract file features"""
     for file_handler in FILE_HANDLERS:
-        for feature, va in file_handler():
-            yield feature, va
+        yield from file_handler()
 
 
 FILE_HANDLERS = (

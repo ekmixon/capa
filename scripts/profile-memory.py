@@ -16,16 +16,14 @@ def display_top(snapshot, key_type="lineno", limit=10):
     )
     top_stats = snapshot.statistics(key_type)
 
-    print("Top %s lines" % limit)
+    print(f"Top {limit} lines")
     for index, stat in enumerate(top_stats[:limit], 1):
         frame = stat.traceback[0]
         print("#%s: %s:%s: %.1f KiB" % (index, frame.filename, frame.lineno, stat.size / 1024))
-        line = linecache.getline(frame.filename, frame.lineno).strip()
-        if line:
-            print("    %s" % line)
+        if line := linecache.getline(frame.filename, frame.lineno).strip():
+            print(f"    {line}")
 
-    other = top_stats[limit:]
-    if other:
+    if other := top_stats[limit:]:
         size = sum(stat.size for stat in other)
         print("%s other: %.1f KiB" % (len(other), size / 1024))
     total = sum(stat.size for stat in top_stats)

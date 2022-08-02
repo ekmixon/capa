@@ -96,17 +96,13 @@ def main():
     # order by (namespace, name) so that like things show up together
     rows = sorted(rows)
     for ns, name, va in rows:
-        if ns:
-            cmt = "%s (%s)" % (name, ns)
-        else:
-            cmt = "%s" % (name,)
-
+        cmt = f"{name} ({ns})" if ns else f"{name}"
         logger.info("0x%x: %s", va, cmt)
         try:
             # message will look something like:
             #
             #     capa: delete service (host-interaction/service/delete)
-            append_func_cmt(va, "capa: " + cmt, repeatable=False)
+            append_func_cmt(va, f"capa: {cmt}", repeatable=False)
         except ValueError:
             continue
 
